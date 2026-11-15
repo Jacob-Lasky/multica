@@ -19,6 +19,7 @@
   "backend": [
     "server/**",
     "packages/core/runtimes/cli-version.ts",
+    "packages/core/types/inbox.ts",
     ".multica/environments.toml",
     "examples/plugins/**",
     ".env.example",

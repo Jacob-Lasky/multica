@@ -50,6 +50,7 @@ for (const [name, files, selected] of [
   ["brand generator", ["scripts/brand/sync.mjs"], ["quality"]],
   ["PR evidence uploader", ["scripts/pr-shots"], ["quality"]],
   ["cross-module runtime contract", ["packages/core/runtimes/cli-version.ts"], ["frontend", "backend", "runtime", "quality"]],
+  ["inbox type contract", ["packages/core/types/inbox.ts"], ["frontend", "backend", "quality"]],
   ["shared quick action body contract", ["server/internal/handler/testdata/quick_action_bodies.json"], ["frontend", "backend", "runtime"]],
   ["lockfile", ["pnpm-lock.yaml"], ["frontend", "quality"]],
   ["workspace package patch", ["patches/example.patch"], ["frontend", "quality"]],
