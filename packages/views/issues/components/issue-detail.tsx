@@ -56,6 +56,7 @@ import {
 } from "./wakeup-activity";
 import { useWakeupText } from "./wakeup-presentation";
 import type { ImageSequenceBlock } from "@multica/core/attachments/image-sequence";
+import { useComposerVoice, VoiceErrorRow, VoiceHud, VoiceMicButton, VoiceStrip } from "../../voice";
 import { FileUploadButton } from "@multica/ui/components/common/file-upload-button";
 import {
   Tooltip,
@@ -2631,6 +2632,11 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
   }, [highlightCommentId, highlightRequestToken, activeDeliverableJump, id, writeViewState, items, targetIdx, scrollContainerEl, highlightRootId, expandedResolved, timelineView, toggleResolvedExpand, isFlatTimeline, measuredTimelineId, timelineLoading, commentTasksLoading, flashJumpTarget]);
 
   const descEditorRef = useRef<ContentEditorRef>(null);
+  // Dictation into the description: typed where the caret is, saved like typing.
+  const descVoice = useComposerVoice({
+    insert: (text) => descEditorRef.current?.insertText(text) ?? false,
+    scope: id,
+  });
   const descriptionEditingRef = useRef(false);
   const descriptionSaveInFlightRef = useRef(false);
   const descriptionSaveIssueIdRef = useRef(id);
@@ -3838,6 +3844,7 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
             ref={descriptionAnnotations.cardRef}
             className="relative mt-5 rounded-lg"
             onFocusCapture={() => {
+              descVoice.onFocusCapture();
               if (!descriptionEditingRef.current) {
                 descriptionEditingRef.current = true;
               }
@@ -3894,18 +3901,27 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
               />
             </div>
 
-            <div className="flex items-center gap-1 mt-3">
-              <ReactionBar
-                reactions={issueReactions}
-                currentUserId={user?.id}
-                onToggle={handleToggleIssueReaction}
-                getActorName={getActorName}
-              />
-              <FileUploadButton
-                size="sm"
-                multiple
-                onSelect={(file) => descEditorRef.current?.uploadFile(file)}
-              />
+            <VoiceErrorRow voice={descVoice} className="mt-3" />
+            <div ref={descVoice.rootRef} className="relative flex min-h-6 items-center gap-1 mt-3">
+              <VoiceHud voice={descVoice} />
+              {descVoice.showStrip ? (
+                <VoiceStrip voice={descVoice} />
+              ) : (
+                <>
+                  <ReactionBar
+                    reactions={issueReactions}
+                    currentUserId={user?.id}
+                    onToggle={handleToggleIssueReaction}
+                    getActorName={getActorName}
+                  />
+                  <FileUploadButton
+                    size="sm"
+                    multiple
+                    onSelect={(file) => descEditorRef.current?.uploadFile(file)}
+                  />
+                  <VoiceMicButton voice={descVoice} size="sm" />
+                </>
+              )}
             </div>
             {descDragOver && <FileDropOverlay />}
           </div>
