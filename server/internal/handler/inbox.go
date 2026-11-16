@@ -209,7 +209,7 @@ func (h *Handler) ListInbox(w http.ResponseWriter, r *http.Request) {
 		HiddenProjectIds: hidden.Param(),
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list inbox")
+		writeInboxReadError(w, r, err, "failed to list inbox")
 		return
 	}
 
@@ -252,7 +252,7 @@ func (h *Handler) ListArchivedInbox(w http.ResponseWriter, r *http.Request) {
 		HiddenProjectIds: hidden.Param(),
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to list archived inbox")
+		writeInboxReadError(w, r, err, "failed to list archived inbox")
 		return
 	}
 
@@ -443,7 +443,7 @@ func (h *Handler) CountUnreadInbox(w http.ResponseWriter, r *http.Request) {
 		HiddenProjectIds: hidden.Param(),
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to count unread inbox")
+		writeInboxReadError(w, r, err, "failed to count unread inbox")
 		return
 	}
 
@@ -471,7 +471,7 @@ func (h *Handler) UnreadInboxSummary(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := h.Queries.CountUnreadInboxByWorkspace(r.Context(), parseUUID(userID))
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to summarize unread inbox")
+		writeInboxReadError(w, r, err, "failed to summarize unread inbox")
 		return
 	}
 
@@ -650,4 +650,20 @@ func (h *Handler) ArchiveCompletedInbox(w http.ResponseWriter, r *http.Request) 
 	})
 
 	writeJSON(w, http.StatusOK, map[string]any{"count": count})
+}
+
+// writeInboxReadError answers a failed inbox read. A client can abandon an
+// in-flight read: the web client aborts a superseded archived page or facets
+// fetch (both carry an AbortSignal), and any read ends when the page unloads
+// or the connection drops. pgx then returns context.Canceled. That is the client leaving, not a server
+// fault: answer 499, which the request logger records at Info. DO NOT turn it
+// back into a 500: the request logger records every 500 as an error, so an
+// operator's error alerting pages on a client navigating away. Any other
+// error is logged with its cause.
+func writeInboxReadError(w http.ResponseWriter, r *http.Request, err error, msg string) {
+	if writeQueryCancellation(w, r, err) {
+		return
+	}
+	slog.Warn(msg, append(logger.RequestAttrs(r), "error", err)...)
+	writeError(w, http.StatusInternalServerError, msg)
 }
