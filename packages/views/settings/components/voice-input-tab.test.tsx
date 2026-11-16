@@ -24,6 +24,7 @@ vi.mock("../../voice/engine", async (importOriginal) => {
 });
 
 beforeEach(() => {
+  configStore.setState({ voiceTranscriptionEnabled: false });
   useVoiceSettingsStore.getState().update(DEFAULT_VOICE_SETTINGS);
   useVoiceModelsStore.getState().setModels({ engineAvailable: true, models: [] });
   (window as unknown as { desktopAPI: unknown }).desktopAPI = {
@@ -72,11 +73,20 @@ describe("VoiceInputTab", () => {
     expect(await screen.findByText("Microphone")).toBeInTheDocument();
   });
 
-  it("on Desktop with the server's speech, hides the on-device models and history", async () => {
+  it("on Desktop with the server's speech, hides the on-device models but keeps the kept recordings", async () => {
     configStore.getState().setVoiceTranscriptionEnabled(true);
     renderWithI18n(<VoiceInputTab />);
-    expect(screen.queryByText("History")).not.toBeInTheDocument();
+    expect(screen.getByText(/speech-to-text service your Multica server/)).toBeInTheDocument();
+    expect(screen.getByText("History")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("switch", { name: "Voice input" }));
     expect(screen.queryByText("Speech model")).not.toBeInTheDocument();
+  });
+
+  it("promises neither engine until the config says which one is in use", () => {
+    act(() => configStore.setState({ voiceTranscriptionEnabled: null }));
+    renderWithI18n(<VoiceInputTab />);
+    expect(screen.queryByText(/never leaves/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/speech-to-text service/)).not.toBeInTheDocument();
+    expect(screen.queryByText("History")).not.toBeInTheDocument();
   });
 });

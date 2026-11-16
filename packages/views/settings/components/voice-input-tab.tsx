@@ -48,10 +48,13 @@ export function VoiceInputTab() {
   return (
     <SettingsTab
       title={t(($) => $.page.tabs.voice_input)}
+      // Neither promise (on this computer, or the server's provider) until the config says which applies.
       description={
-        serverEngine
-          ? t(($) => $.voice_input.description_server)
-          : t(($) => $.voice_input.description)
+        serverEngine === null
+          ? undefined
+          : serverEngine
+            ? t(($) => $.voice_input.description_server)
+            : t(($) => $.voice_input.description)
       }
       scope="device"
     >
@@ -62,7 +65,7 @@ export function VoiceInputTab() {
       </SettingsSection>
       {enabled && (
         <>
-          {!serverEngine && (
+          {serverEngine === false && (
           <SettingsSection
             title={t(($) => $.voice_input.model_title)}
             description={
@@ -106,7 +109,7 @@ export function VoiceInputTab() {
         </>
       )}
       {/* Recordings already on this computer stay reachable while voice input is off. */}
-      {!serverEngine && <VoiceHistorySection />}
+      {serverEngine !== null && <VoiceHistorySection />}
     </SettingsTab>
   );
 }

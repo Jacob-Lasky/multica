@@ -10,9 +10,13 @@ vi.mock("@multica/core/voice", async (original) => ({
   ...(await original<typeof import("@multica/core/voice")>()),
   transcribeVoiceClip: transcribe,
 }));
+const serverEngine = vi.hoisted(() => ({ value: false as boolean | null }));
 vi.mock("../../voice/engine", async () => {
   const { useVoiceModelsStore } = await import("@multica/core/voice");
-  return { useVoiceModels: () => useVoiceModelsStore((s) => s.models) };
+  return {
+    useVoiceModels: () => useVoiceModelsStore((s) => s.models),
+    useServerVoiceEngine: () => serverEngine.value,
+  };
 });
 
 const now = Date.now();
@@ -36,6 +40,7 @@ beforeEach(() => {
   ];
   Object.values(api).forEach((fn) => fn.mockClear());
   transcribe.mockReset();
+  serverEngine.value = false;
   useVoiceSettingsStore.getState().update(DEFAULT_VOICE_SETTINGS);
   useVoiceModelsStore.getState().setModels({
     engineAvailable: true,
@@ -69,6 +74,14 @@ describe("VoiceHistorySection", () => {
     expect(api.update).toHaveBeenNthCalledWith(1, "b", { status: "transcribing" });
     expect(api.audio).toHaveBeenCalledWith("b");
     await waitFor(() => expect(api.update).toHaveBeenLastCalledWith("b", { status: "done", text: "找回来了" }));
+  });
+
+  it("keeps recordings playable but offers no re-transcription while the server's engine is in use", async () => {
+    serverEngine.value = true;
+    renderWithI18n(<VoiceHistorySection />);
+    await screen.findByText("Transcription failed");
+    for (const button of screen.getAllByRole("button", { name: "Transcribe again" })) expect(button).toBeDisabled();
+    expect(screen.getAllByRole("button", { name: "Play recording" })[0]).toBeEnabled();
   });
 
   it("applies the new retention when it changes", async () => {

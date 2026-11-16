@@ -130,7 +130,10 @@ export function useVoiceInputAvailable(): boolean {
   return serverTranscription === true || localVoiceAPI() !== undefined;
 }
 
-/** Speech goes to the server's provider rather than an engine on this device. */
-export function useServerVoiceEngine(): boolean {
-  return useConfigStore((s) => s.voiceTranscriptionEnabled) === true;
+/**
+ * Speech goes to the server's provider rather than an engine on this device;
+ * null until the config says which.
+ */
+export function useServerVoiceEngine(): boolean | null {
+  return useConfigStore((s) => s.voiceTranscriptionEnabled);
 }

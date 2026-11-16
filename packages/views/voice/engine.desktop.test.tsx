@@ -50,7 +50,7 @@ describe("useVoiceModels on Desktop", () => {
   it("offers voice input on Desktop either way, and reports which engine is in use", async () => {
     const { configStore, useVoiceInputAvailable, useServerVoiceEngine } = await load();
     const { result } = renderHook(() => [useVoiceInputAvailable(), useServerVoiceEngine()]);
-    expect(result.current).toEqual([true, false]);
+    expect(result.current).toEqual([true, null]);
     act(() => configStore.getState().setVoiceTranscriptionEnabled(true));
     expect(result.current).toEqual([true, true]);
   });

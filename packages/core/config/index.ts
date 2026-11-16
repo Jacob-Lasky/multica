@@ -52,9 +52,10 @@ interface ConfigState {
   // store requests.
   themeStoreEnabled: boolean;
   // Whether the server streams voice input to a speech provider. Null until
-  // the config has loaded (Desktop waits for it before choosing between the
-  // server and its on-device engine); false when absent (older servers, no
-  // provider configured) or when the config could not be read.
+  // the config has loaded, including while a failed load is retried: the app
+  // connects one speech engine per page, so Desktop waits for the answer
+  // before choosing between the server and its on-device engine. False when
+  // absent (older servers, no provider configured).
   voiceTranscriptionEnabled: boolean | null;
   setCdnConfig: (config: { cdnDomain: string; cdnSigned?: boolean }) => void;
   setAttachmentPublicUrl: (url?: string) => void;

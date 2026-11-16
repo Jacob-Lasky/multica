@@ -36,7 +36,7 @@ import {
 } from "@multica/core/voice";
 import { useLocale, useT } from "../../i18n";
 import { localVoiceAPI, type LocalVoiceHistoryAPI } from "../../platform/local-voice";
-import { useVoiceModels } from "../../voice";
+import { useServerVoiceEngine, useVoiceModels } from "../../voice";
 import { SettingsCard, SettingsRow, SettingsSection } from "./settings-layout";
 
 const PAGE = 50;
@@ -201,7 +201,10 @@ function HistoryList({ api, entries }: { api: LocalVoiceHistoryAPI; entries: Voi
   const [shown, setShown] = useState(PAGE);
   const player = usePlayer(api);
   const modelId = useVoiceSettingsStore((state) => state.modelId);
-  const canTranscribe = pickVoiceModel(useVoiceModels(), modelId) !== null;
+  // The server's engine streams live speech and cannot re-transcribe a kept clip.
+  const serverEngine = useServerVoiceEngine();
+  const model = pickVoiceModel(useVoiceModels(), modelId);
+  const canTranscribe = serverEngine === false && model !== null;
   const groups = useMemo(() => {
     const today = dayKey(Date.now());
     const yesterday = dayKey(Date.now() - 24 * 60 * 60 * 1000);

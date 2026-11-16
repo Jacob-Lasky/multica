@@ -134,8 +134,6 @@ export function AuthInitializer({
       })
       .catch(() => {
         configStore.getState().setDaemonConfigStatus("error");
-        // Unreadable config: no server voice, so Desktop falls back to its own engine.
-        configStore.getState().setVoiceTranscriptionEnabled(false);
         return false;
       })
       .finally(() => {
