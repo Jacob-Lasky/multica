@@ -2151,7 +2151,7 @@ func (s *TaskService) enqueueChatTaskTx(
 		ID:                   dbid.NewV7(),
 		AgentID:              chatSession.AgentID,
 		RuntimeID:            agent.RuntimeID,
-		Priority:             2,
+		Priority:             chatTaskPriority(prepared.attrSource),
 		ChatSessionID:        chatSession.ID,
 		InitiatorUserID:      initiatorUserID,
 		FireAt:               mediaPendingUntil,
@@ -2496,7 +2496,7 @@ func (s *TaskService) sendDirectChatMessage(
 			ID:                   dbid.NewV7(),
 			AgentID:              session.AgentID,
 			RuntimeID:            carrier.RuntimeID,
-			Priority:             2, // medium priority for chat; matches EnqueueChatTask
+			Priority:             chatTaskPriority(attrSource),
 			ChatSessionID:        session.ID,
 			InitiatorUserID:      initiatorUserID,
 			OriginatorUserID:     attr.UserID,
@@ -7484,6 +7484,19 @@ func computeChatElapsedMs(task db.AgentTaskQueue) pgtype.Int8 {
 		ms = 0
 	}
 	return pgtype.Int8{Int64: ms, Valid: true}
+}
+
+// directHumanChatPriority ranks a chat turn a person typed above every issue
+// task (urgent is 4), so it is the next task its runtime starts when a slot
+// frees. A person waiting in a chat should not queue behind background issue
+// work; a delegated or system-originated chat keeps the medium rank.
+const directHumanChatPriority int32 = 10
+
+func chatTaskPriority(source pgtype.Text) int32 {
+	if source.Valid && source.String == string(attribution.SourceDirectHuman) {
+		return directHumanChatPriority
+	}
+	return priorityToInt("medium")
 }
 
 func priorityToInt(p string) int32 {
