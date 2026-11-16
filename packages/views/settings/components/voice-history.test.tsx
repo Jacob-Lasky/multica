@@ -81,6 +81,8 @@ describe("VoiceHistorySection", () => {
     renderWithI18n(<VoiceHistorySection />);
     await screen.findByText("Transcription failed");
     for (const button of screen.getAllByRole("button", { name: "Transcribe again" })) expect(button).toBeDisabled();
+    expect(screen.queryByText(/transcribed again/)).not.toBeInTheDocument();
+    expect(screen.getByText(/can be played, copied or deleted/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Play recording" })[0]).toBeEnabled();
   });
 

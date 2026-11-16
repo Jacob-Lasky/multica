@@ -111,12 +111,17 @@ export function VoiceHistorySection() {
   const api = useMemo(() => localVoiceAPI()?.history, []);
   const entries = useHistory(api);
   const keepHistory = useVoiceSettingsStore((state) => state.keepHistory);
+  const serverEngine = useServerVoiceEngine();
   const [confirmClear, setConfirmClear] = useState(false);
   if (!api) return null;
   return (
     <SettingsSection
       title={t(($) => $.voice_input.history.title)}
-      description={t(($) => $.voice_input.history.description)}
+      description={
+        serverEngine === false
+          ? t(($) => $.voice_input.history.description)
+          : t(($) => $.voice_input.history.description_kept)
+      }
       anchor="voice-history"
       action={
         entries && entries.length > 0 ? (

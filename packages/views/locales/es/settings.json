@@ -1940,6 +1940,7 @@
     "history": {
       "title": "Historial",
       "description": "Las grabaciones y su texto se quedan en este ordenador y nunca se suben. Una que falló o se interrumpió puede transcribirse de nuevo desde su audio.",
+      "description_kept": "Grabaciones y su texto guardados en este equipo. Puedes reproducirlos, copiarlos o eliminarlos aquí.",
       "keep": {
         "title": "Conservar historial",
         "hint": "Cuánto tiempo se guardan las grabaciones en este ordenador.",

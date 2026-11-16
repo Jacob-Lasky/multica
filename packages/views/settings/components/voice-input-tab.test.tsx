@@ -87,6 +87,7 @@ describe("VoiceInputTab", () => {
     renderWithI18n(<VoiceInputTab />);
     expect(screen.queryByText(/never leaves/)).not.toBeInTheDocument();
     expect(screen.queryByText(/speech-to-text service/)).not.toBeInTheDocument();
-    expect(screen.queryByText("History")).not.toBeInTheDocument();
+    // Recordings already on this computer stay reachable even while the config is out.
+    expect(screen.getByText("History")).toBeInTheDocument();
   });
 });

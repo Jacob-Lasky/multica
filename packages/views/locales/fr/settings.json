@@ -1940,6 +1940,7 @@
     "history": {
       "title": "Historique",
       "description": "Les enregistrements et leur texte restent sur cet ordinateur et ne sont jamais envoyés. Un enregistrement qui a échoué ou a été interrompu peut être retranscrit à partir de son audio.",
+      "description_kept": "Enregistrements et leur texte conservés sur cet ordinateur. Vous pouvez les écouter, les copier ou les supprimer ici.",
       "keep": {
         "title": "Conserver l'historique",
         "hint": "Durée de conservation des enregistrements sur cet ordinateur.",

@@ -117,7 +117,9 @@ export function useVoiceModels(): VoiceModels | null {
   const serverTranscription = useConfigStore((s) => s.voiceTranscriptionEnabled);
   useEffect(() => {
     // The session connects one runtime for the life of the page, so nothing
-    // connects until the config says whether the server streams speech.
+    // connects until the config says whether the server streams speech. A
+    // config that never loads leaves Desktop without voice input; that is a
+    // server Desktop cannot reach, where nothing dictated could be sent.
     if (serverTranscription === true) connectVoiceRuntime(serverVoiceRuntime);
     else if (serverTranscription === false && localVoiceAPI()) connectVoiceRuntime(desktopVoiceRuntime);
   }, [serverTranscription]);

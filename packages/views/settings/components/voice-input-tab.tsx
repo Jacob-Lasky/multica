@@ -109,7 +109,7 @@ export function VoiceInputTab() {
         </>
       )}
       {/* Recordings already on this computer stay reachable while voice input is off. */}
-      {serverEngine !== null && <VoiceHistorySection />}
+      <VoiceHistorySection />
     </SettingsTab>
   );
 }
