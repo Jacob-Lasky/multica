@@ -7489,7 +7489,11 @@ func computeChatElapsedMs(task db.AgentTaskQueue) pgtype.Int8 {
 // directHumanChatPriority ranks a chat turn a person typed above every issue
 // task (urgent is 4), so it is the next task its runtime starts when a slot
 // frees. A person waiting in a chat should not queue behind background issue
-// work; a delegated or system-originated chat keeps the medium rank.
+// work; a delegated or system-originated chat keeps the medium rank. Limit:
+// a task already claimed whose dispatch response was lost is re-delivered
+// before queued work (ClaimTaskForRuntime's stale reclaim); that re-delivers
+// an existing claim, it does not reorder the queue. "Send now" in
+// PrioritizeQueuedChatTask (chat.sql) ranks above this value.
 const directHumanChatPriority int32 = 10
 
 func chatTaskPriority(source pgtype.Text) int32 {

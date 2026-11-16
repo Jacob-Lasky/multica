@@ -2966,15 +2966,15 @@ WITH target AS MATERIALIZED (
   FOR UPDATE
 ), demoted AS (
   UPDATE agent_task_queue AS queued
-  SET priority = 3
+  SET priority = 11
   WHERE queued.chat_session_id = $1
     AND queued.id <> $2
     AND queued.status = 'queued'
-    AND queued.priority >= 4
+    AND queued.priority >= 12
     AND EXISTS (SELECT 1 FROM target)
 ), prioritized AS (
   UPDATE agent_task_queue AS selected
-  SET priority = 4
+  SET priority = 12
   FROM target
   WHERE selected.id = target.id
   RETURNING selected.id
@@ -3003,6 +3003,10 @@ type PrioritizeQueuedChatTaskRow struct {
 	ActiveTaskID pgtype.UUID `json:"active_task_id"`
 }
 
+// "Send now" ranks the selected turn 12 and demotes an earlier selection to
+// 11, both above a person's plain chat turn (10, directHumanChatPriority in
+// service/task.go) and so above all issue work (urgent is 4). Keep the three
+// values in that order.
 func (q *Queries) PrioritizeQueuedChatTask(ctx context.Context, arg PrioritizeQueuedChatTaskParams) (PrioritizeQueuedChatTaskRow, error) {
 	row := q.db.QueryRow(ctx, prioritizeQueuedChatTask, arg.ChatSessionID, arg.ID)
 	var i PrioritizeQueuedChatTaskRow

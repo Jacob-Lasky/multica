@@ -257,7 +257,7 @@ func TestGetPendingChatTask_ReturnsActiveHeadAndFIFOQueue(t *testing.T) {
 	}
 	if _, err := testPool.Exec(
 		context.Background(),
-		`UPDATE agent_task_queue SET priority = 4 WHERE id = $1`,
+		`UPDATE agent_task_queue SET priority = 12 WHERE id = $1`,
 		nextID,
 	); err != nil {
 		t.Fatalf("seed prior send-now selection: %v", err)
@@ -300,6 +300,18 @@ func TestGetPendingChatTask_ReturnsActiveHeadAndFIFOQueue(t *testing.T) {
 		resp.QueuedTasks[0].TaskID != laterID ||
 		resp.QueuedTasks[1].TaskID != nextID {
 		t.Fatalf("send-now priority did not move only the selected follow-up: %+v", resp)
+	}
+	// Both stay above every issue task (urgent is 4) and the selection stays
+	// above a plain chat turn (directHumanChatPriority, 10).
+	for id, want := range map[string]int{laterID: 12, nextID: 11} {
+		var got int
+		if err := testPool.QueryRow(context.Background(),
+			`SELECT priority FROM agent_task_queue WHERE id = $1`, id).Scan(&got); err != nil {
+			t.Fatalf("read send-now priority: %v", err)
+		}
+		if got != want {
+			t.Fatalf("send-now priority for %s = %d, want %d", id, got, want)
+		}
 	}
 
 	if _, err := testPool.Exec(
@@ -458,7 +470,7 @@ func TestPrioritizeQueuedChatTask_StaleTargetPreservesExistingPriority(t *testin
 	staleID := insertPendingChatTask(t, agentID, sessionID, "completed")
 	if _, err := testPool.Exec(
 		context.Background(),
-		`UPDATE agent_task_queue SET priority = 4 WHERE id = $1`,
+		`UPDATE agent_task_queue SET priority = 12 WHERE id = $1`,
 		existingID,
 	); err != nil {
 		t.Fatalf("seed existing priority: %v", err)
@@ -497,7 +509,7 @@ func TestPrioritizeQueuedChatTask_StaleTargetPreservesExistingPriority(t *testin
 	).Scan(&priority); err != nil {
 		t.Fatalf("read preserved priority: %v", err)
 	}
-	if priority != 4 {
+	if priority != 12 {
 		t.Fatalf("stale prioritize demoted existing queue head to %d", priority)
 	}
 }
