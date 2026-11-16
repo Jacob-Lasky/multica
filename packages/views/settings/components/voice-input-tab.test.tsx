@@ -71,4 +71,12 @@ describe("VoiceInputTab", () => {
     expect(screen.queryByText("Speech model")).not.toBeInTheDocument();
     expect(await screen.findByText("Microphone")).toBeInTheDocument();
   });
+
+  it("on Desktop with the server's speech, hides the on-device models and history", async () => {
+    configStore.getState().setVoiceTranscriptionEnabled(true);
+    renderWithI18n(<VoiceInputTab />);
+    expect(screen.queryByText("History")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("switch", { name: "Voice input" }));
+    expect(screen.queryByText("Speech model")).not.toBeInTheDocument();
+  });
 });

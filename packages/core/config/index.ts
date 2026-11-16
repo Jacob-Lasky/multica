@@ -51,9 +51,11 @@ interface ConfigState {
   // servers and off when the operator turned it off: no Browse entry, no
   // store requests.
   themeStoreEnabled: boolean;
-  // Whether the server transcribes voice input. Absent on older servers and
-  // off unless the operator configured a speech provider: no mic on the web.
-  voiceTranscriptionEnabled: boolean;
+  // Whether the server streams voice input to a speech provider. Null until
+  // the config has loaded (Desktop waits for it before choosing between the
+  // server and its on-device engine); false when absent (older servers, no
+  // provider configured) or when the config could not be read.
+  voiceTranscriptionEnabled: boolean | null;
   setCdnConfig: (config: { cdnDomain: string; cdnSigned?: boolean }) => void;
   setAttachmentPublicUrl: (url?: string) => void;
   setAuthConfig: (config: {
@@ -97,7 +99,7 @@ export const configStore = createStore<ConfigState>((set) => ({
   issueCreatePropertiesSupported: false,
   commentDeleteKeepRepliesSupported: false,
   themeStoreEnabled: false,
-  voiceTranscriptionEnabled: false,
+  voiceTranscriptionEnabled: null,
   setCdnConfig: ({ cdnDomain, cdnSigned = false }) => set({ cdnDomain, cdnSigned }),
   setAttachmentPublicUrl: (url = "") => set({ attachmentPublicUrl: url }),
   setAuthConfig: ({

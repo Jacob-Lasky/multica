@@ -1,8 +1,8 @@
 /**
  * The voice session's runtime: the microphone recorder plus a speech engine.
- * Desktop transcribes on the device through the preload IPC. A browser has no
- * local engine, so the web app streams to the speech provider the server
- * configured, with a short-lived token the server mints.
+ * When the server has a speech provider, every app streams to it with a
+ * short-lived token the server mints. Otherwise Desktop transcribes on the
+ * device through the preload IPC, and a browser has no engine.
  */
 import { useEffect } from "react";
 import { api } from "@multica/core/api";
@@ -98,7 +98,8 @@ export function serverVoiceRuntime(): VoiceRuntime {
   return {
     record: (onMeter, onLimit) => new Recording(onMeter, onLimit),
     prepare: () => {},
-    // Streams never send a clip; only history re-transcribes one, and the web keeps none.
+    // Streams never send a clip; only history re-transcribes one, and history
+    // is hidden while the server's engine is in use.
     transcribe: async () => ({ ok: false, reason: "engine-unavailable" }),
     stream: (handlers, onMeter, onLimit) =>
       new DeepgramStream(handlers, onMeter, onLimit, (signal) => api.createVoiceSession(signal)),
@@ -108,28 +109,28 @@ export function serverVoiceRuntime(): VoiceRuntime {
 
 /**
  * The speech models of this app's engine; null until one is connected and
- * answers. Desktop keeps its on-device engine; the web app uses the server's
- * once the config reports it.
+ * answers. When the server streams speech, every app uses it, Desktop
+ * included: the operator chose where speech is processed. Otherwise Desktop
+ * uses its on-device engine and the web app has none.
  */
 export function useVoiceModels(): VoiceModels | null {
   const serverTranscription = useConfigStore((s) => s.voiceTranscriptionEnabled);
   useEffect(() => {
-    // The session connects one runtime for the life of the page, so the web
-    // app waits for the config instead of connecting "none" first.
-    if (localVoiceAPI()) connectVoiceRuntime(desktopVoiceRuntime);
-    else if (serverTranscription) connectVoiceRuntime(serverVoiceRuntime);
+    // The session connects one runtime for the life of the page, so nothing
+    // connects until the config says whether the server streams speech.
+    if (serverTranscription === true) connectVoiceRuntime(serverVoiceRuntime);
+    else if (serverTranscription === false && localVoiceAPI()) connectVoiceRuntime(desktopVoiceRuntime);
   }, [serverTranscription]);
   return useVoiceModelsStore((s) => s.models);
 }
 
-/** Whether this app can transcribe at all: Desktop's engine or the server's. */
+/** Whether this app can transcribe at all: the server's engine or Desktop's. */
 export function useVoiceInputAvailable(): boolean {
   const serverTranscription = useConfigStore((s) => s.voiceTranscriptionEnabled);
-  return localVoiceAPI() !== undefined || serverTranscription;
+  return serverTranscription === true || localVoiceAPI() !== undefined;
 }
 
-/** Recordings go to the server rather than an engine on this device. */
+/** Speech goes to the server's provider rather than an engine on this device. */
 export function useServerVoiceEngine(): boolean {
-  const serverTranscription = useConfigStore((s) => s.voiceTranscriptionEnabled);
-  return localVoiceAPI() === undefined && serverTranscription;
+  return useConfigStore((s) => s.voiceTranscriptionEnabled) === true;
 }

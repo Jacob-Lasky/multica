@@ -36,9 +36,9 @@ import {
 } from "./settings-layout";
 
 /**
- * Speech models and how dictation behaves on this computer. Desktop
- * transcribes on the device; the web app sends recordings to the server
- * when it transcribes them, and then has no models to manage.
+ * How dictation behaves on this computer. When the server streams speech,
+ * every app uses it and there are no models or recordings to manage;
+ * otherwise Desktop transcribes on the device with the models it downloads.
  */
 export function VoiceInputTab() {
   const { t } = useT("settings");
@@ -106,7 +106,7 @@ export function VoiceInputTab() {
         </>
       )}
       {/* Recordings already on this computer stay reachable while voice input is off. */}
-      <VoiceHistorySection />
+      {!serverEngine && <VoiceHistorySection />}
     </SettingsTab>
   );
 }
