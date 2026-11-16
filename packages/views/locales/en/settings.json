@@ -1940,7 +1940,7 @@
     "history": {
       "title": "History",
       "description": "Recordings and their text stay on this computer and are never uploaded. One that failed or was interrupted can be transcribed again from its audio.",
-      "description_kept": "Recordings and their text kept on this computer. They can be played, copied or deleted here.",
+      "description_kept": "Recordings kept on this computer. Play or delete them here, and copy a transcript where there is one.",
       "keep": {
         "title": "Keep history",
         "hint": "How long recordings stay on this computer.",

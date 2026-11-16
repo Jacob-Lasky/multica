@@ -117,9 +117,12 @@ export function useVoiceModels(): VoiceModels | null {
   const serverTranscription = useConfigStore((s) => s.voiceTranscriptionEnabled);
   useEffect(() => {
     // The session connects one runtime for the life of the page, so nothing
-    // connects until the config says whether the server streams speech. A
-    // config that never loads leaves Desktop without voice input; that is a
-    // server Desktop cannot reach, where nothing dictated could be sent.
+    // connects until the config says whether the server streams speech. The
+    // config load retries with backoff (AuthInitializer), so this waits out a
+    // transient failure. Known limit: a server whose /api/config keeps failing
+    // while its other routes work leaves Desktop without voice input; picking
+    // an engine without knowing the server's choice could send speech where
+    // the operator did not intend, or keep it local when they did.
     if (serverTranscription === true) connectVoiceRuntime(serverVoiceRuntime);
     else if (serverTranscription === false && localVoiceAPI()) connectVoiceRuntime(desktopVoiceRuntime);
   }, [serverTranscription]);
