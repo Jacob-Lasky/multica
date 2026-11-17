@@ -63,12 +63,17 @@ function useVoiceAgentActions(current: Workspace | null) {
   }, [pathname, searchParams, current]);
 
   const run = useCallback(
-    async (name: string, args: Record<string, unknown>): Promise<Record<string, unknown>> => {
+    async (
+      name: string,
+      args: Record<string, unknown>,
+      live: () => boolean,
+    ): Promise<Record<string, unknown>> => {
       if (!current) return { error: "no workspace is open" };
       switch (name) {
         case "navigate": {
           const target = resolveNavigate(args, current, workspaces);
           if (!target.ok) return { error: target.error };
+          if (!live()) return { error: "voice was turned off" };
           nav.push(target.path);
           return { ok: true, went_to: target.where, workspace: target.workspace };
         }
@@ -76,6 +81,7 @@ function useVoiceAgentActions(current: Workspace | null) {
           const items = await qc.fetchQuery({ ...inboxListOptions(current.id), staleTime: 0 });
           const { item, unread } = newestUnread(items);
           if (!item) return { ok: true, unread: 0, workspace: current.name };
+          if (!live()) return { error: "voice was turned off" };
           nav.push(inboxItemPath(current, item));
           return {
             ok: true,
@@ -85,14 +91,24 @@ function useVoiceAgentActions(current: Workspace | null) {
           };
         }
         case "read_screen": {
-          const onScreen = issueOnScreen(pathname, searchParams);
           const screen: Record<string, unknown> = {
             page: pathname,
             title: document.title,
             workspace: current.name,
           };
-          if (onScreen) {
-            const issue = await qc.fetchQuery(issueDetailOptions(current.id, onScreen.ref));
+          const onScreen = issueOnScreen(pathname, searchParams);
+          let issueRef = onScreen && !onScreen.byId ? onScreen.ref : null;
+          if (onScreen?.byId) {
+            // The inbox selects by issue id, or by the notification's own id when it has no issue.
+            const items = await qc.fetchQuery(inboxListOptions(current.id));
+            const row = items.find((i) => (i.issue_id ?? i.id) === onScreen.ref);
+            if (row) {
+              screen.inbox_item = { title: row.title, kind: row.type, detail: clip(row.body, 300), at: row.created_at };
+            }
+            issueRef = row ? row.issue_id : onScreen.ref;
+          }
+          if (issueRef) {
+            const issue = await qc.fetchQuery(issueDetailOptions(current.id, issueRef));
             screen.issue = {
               id: issue.identifier,
               title: issue.title,
@@ -104,6 +120,8 @@ function useVoiceAgentActions(current: Workspace | null) {
           return screen;
         }
         case "go_back":
+          // Only within Multica: history behind the first page may be another site.
+          if (!nav.canGoBack?.()) return { error: "there is no earlier Multica page to go back to" };
           nav.back();
           return { ok: true };
         default:

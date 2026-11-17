@@ -31,7 +31,16 @@ export interface VoiceAgentSnapshot {
   said: string;
 }
 
-export type VoiceAgentActionHandler = (name: string, args: Record<string, unknown>) => Promise<Record<string, unknown>>;
+/**
+ * Runs one agent action. `live()` turns false once the conversation that
+ * asked has ended: a handler checks it after any await, before it moves the
+ * window, so a stopped conversation cannot navigate.
+ */
+export type VoiceAgentActionHandler = (
+  name: string,
+  args: Record<string, unknown>,
+  live: () => boolean,
+) => Promise<Record<string, unknown>>;
 
 export interface VoiceAgentContext {
   path: string;
@@ -130,19 +139,22 @@ class VoiceAgentSession {
     };
 
     try {
+      // The stream is kept the moment it opens, so a later failure (the
+      // worklet, the socket) still releases the microphone in stop().
+      const mic = openMicrophone(null).then((media) => {
+        if (this.live === live) live.media = media;
+        else media.getTracks().forEach((track) => track.stop());
+        return media;
+      });
       const [media] = await Promise.all([
-        openMicrophone(null),
+        mic,
         loadPcmWorklet(audio),
         new Promise<void>((resolve, reject) => {
           socket.addEventListener("open", () => resolve(), { once: true });
           socket.addEventListener("close", () => reject(new Error("closed")), { once: true });
         }),
       ]);
-      if (this.live !== live) {
-        media.getTracks().forEach((track) => track.stop());
-        return;
-      }
-      live.media = media;
+      if (this.live !== live) return;
       const worklet = new AudioWorkletNode(audio, "pcm-downsampler", { processorOptions: { targetRate: IN_RATE } });
       worklet.port.onmessage = (event: MessageEvent<ArrayBuffer>) => {
         if (socket.readyState === WebSocket.OPEN) socket.send(event.data);
@@ -199,22 +211,26 @@ class VoiceAgentSession {
         this.flush(live);
         break;
       case "action":
-        void this.runAction(m);
+        void this.runAction(live, m);
         break;
     }
   }
 
-  private async runAction(m: Record<string, unknown>) {
+  /** Runs one action for the conversation `live`; its answer goes only to that conversation's socket. */
+  private async runAction(live: Live, m: Record<string, unknown>) {
     const id = String(m.id ?? "");
     const name = typeof m.name === "string" ? m.name : "";
     const args = m.args && typeof m.args === "object" ? (m.args as Record<string, unknown>) : {};
+    const current = () => this.live === live;
     let result: Record<string, unknown>;
     try {
-      result = this.handler ? await this.handler(name, args) : { error: "Multica is not showing a page" };
+      result = this.handler ? await this.handler(name, args, current) : { error: "Multica is not showing a page" };
     } catch (err) {
       result = { error: err instanceof Error ? err.message : "failed" };
     }
-    this.sendJson({ type: "result", id, result });
+    if (current() && live.socket.readyState === WebSocket.OPEN) {
+      live.socket.send(JSON.stringify({ type: "result", id, result }));
+    }
   }
 
   private play(live: Live, data: ArrayBuffer) {

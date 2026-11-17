@@ -33,6 +33,18 @@ vi.mock("@multica/core/paths", async (importOriginal) => {
     useCurrentWorkspace: () => ({ id: "w1", name: "Work", slug: "work", issue_prefix: "WORK" }),
   };
 });
+vi.mock("@multica/core/inbox/queries", () => ({
+  inboxListOptions: () => ({
+    queryKey: ["inbox"],
+    queryFn: async () => [
+      { id: "n1", issue_id: null, title: "Quick create failed", type: "quick_create_failed", body: "timeout",
+        created_at: "2026-11-17T10:00:00Z", read: false, archived: false },
+    ],
+  }),
+}));
+vi.mock("@multica/core/issues/queries", () => ({
+  issueDetailOptions: () => ({ queryKey: ["issue"], queryFn: async () => { throw new Error("not an issue"); } }),
+}));
 vi.mock("@multica/core/workspace/queries", () => ({
   workspaceListOptions: () => ({
     queryKey: ["workspaces"],
@@ -44,15 +56,18 @@ vi.mock("@multica/core/workspace/queries", () => ({
 }));
 
 const push = vi.fn();
+const back = vi.fn();
+const nav = { canGoBack: false, pathname: "/work/issues", search: "" };
 
 function renderButton(config: unknown) {
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(config), { status: 200 })));
   const adapter: NavigationAdapter = {
     push,
     replace: vi.fn(),
-    back: vi.fn(),
-    pathname: "/work/issues",
-    searchParams: new URLSearchParams(),
+    back,
+    canGoBack: () => nav.canGoBack,
+    pathname: nav.pathname,
+    searchParams: new URLSearchParams(nav.search),
     hash: "",
     getShareableUrl: (path) => path,
   };
@@ -69,6 +84,9 @@ function renderButton(config: unknown) {
 beforeEach(() => {
   h.snap = { status: "off", error: null, heard: "", said: "" };
   h.handler = null;
+  nav.canGoBack = false;
+  nav.pathname = "/work/issues";
+  nav.search = "";
   vi.clearAllMocks();
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -103,10 +121,35 @@ describe("VoiceAgentButton", () => {
     renderButton({ enabled: true, socket: "/voice/agent/ws" });
     await screen.findByRole("button", { name: "Talk to Multica" });
     await waitFor(async () => {
-      const out = await h.handler!("navigate", { place: "issue", issue: "JAKE-386" });
+      const out = await h.handler!("navigate", { place: "issue", issue: "JAKE-386" }, () => true);
       expect(out).toEqual({ ok: true, went_to: "JAKE-386", workspace: "Jake" });
     });
     await waitFor(() => expect(push).toHaveBeenCalledWith("/jake/issues/JAKE-386"));
-    expect(await h.handler!("navigate", { place: "nowhere" })).toEqual({ error: "unknown place nowhere" });
+    expect(await h.handler!("navigate", { place: "nowhere" }, () => true)).toEqual({ error: "unknown place nowhere" });
+  });
+
+  it("goes back only to an earlier Multica page", async () => {
+    renderButton({ enabled: true, socket: "/voice/agent/ws" });
+    await screen.findByRole("button", { name: "Talk to Multica" });
+    expect(await h.handler!("go_back", {}, () => true)).toEqual({ error: "there is no earlier Multica page to go back to" });
+    expect(back).not.toHaveBeenCalled();
+  });
+
+  it("does not move the window for a conversation that has ended", async () => {
+    renderButton({ enabled: true, socket: "/voice/agent/ws" });
+    await screen.findByRole("button", { name: "Talk to Multica" });
+    expect(await h.handler!("navigate", { place: "inbox" }, () => false)).toEqual({ error: "voice was turned off" });
+    expect(await h.handler!("open_unread_inbox_item", {}, () => false)).toEqual({ error: "voice was turned off" });
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("reads an open inbox notification that has no issue", async () => {
+    nav.pathname = "/work/inbox";
+    nav.search = "issue=n1";
+    renderButton({ enabled: true, socket: "/voice/agent/ws" });
+    await screen.findByRole("button", { name: "Talk to Multica" });
+    const out = await h.handler!("read_screen", {}, () => true);
+    expect(out.inbox_item).toEqual({ title: "Quick create failed", kind: "quick_create_failed", detail: "timeout", at: "2026-11-17T10:00:00Z" });
+    expect(out.issue).toBeUndefined();
   });
 });
