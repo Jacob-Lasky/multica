@@ -249,10 +249,11 @@ func Auth(queries *db.Queries, patCache *auth.PATCache, cloudPAT *auth.CloudPATV
 				}
 				patCache.Set(r.Context(), hash, userID, auth.TTLForExpiry(time.Now(), expiresAt))
 
-				// Cache miss = TTL expired (or first use after revoke /
-				// process restart). Refresh last_used_at; subsequent hits
-				// within the TTL window skip this write entirely.
-				go queries.UpdatePersonalAccessTokenLastUsed(context.Background(), pat.ID)
+				// Cache miss. Refresh last_used_at at most once per TTL window
+				// per token, also when there is no cache (no Redis).
+				if auth.PATLastUsed.Allow(pat.ID) {
+					go queries.UpdatePersonalAccessTokenLastUsed(context.Background(), pat.ID)
+				}
 
 				next.ServeHTTP(w, r)
 				return

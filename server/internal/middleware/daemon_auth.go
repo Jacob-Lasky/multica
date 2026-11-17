@@ -302,9 +302,11 @@ func DaemonAuth(queries *db.Queries, patCache *auth.PATCache, daemonCache *auth.
 				}
 				patCache.Set(r.Context(), hash, userID, auth.TTLForExpiry(time.Now(), expiresAt))
 
-				// Cache miss = first request in this TTL window. Refresh
-				// last_used_at; subsequent hits skip the write entirely.
-				go queries.UpdatePersonalAccessTokenLastUsed(context.Background(), pat.ID)
+				// Cache miss. Refresh last_used_at at most once per TTL window
+				// per token, also when there is no cache (no Redis).
+				if auth.PATLastUsed.Allow(pat.ID) {
+					go queries.UpdatePersonalAccessTokenLastUsed(context.Background(), pat.ID)
+				}
 
 				ctx := context.WithValue(r.Context(), ctxKeyDaemonAuthPath, DaemonAuthPathPAT)
 				next.ServeHTTP(w, r.WithContext(ctx))
