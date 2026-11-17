@@ -90,7 +90,7 @@ describe("voiceAgent", () => {
     expect(agent.getSnapshot().status).toBe("listening");
     expect(JSON.parse(FakeSocket.last!.sent[0]!)).toEqual({
       type: "hello",
-      actions: ["navigate", "open_unread_inbox_item", "read_screen", "go_back"],
+      actions: ["navigate", "open_unread_inbox_item", "read_screen"],
     });
     agent.stop();
   });

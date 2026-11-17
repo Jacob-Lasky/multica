@@ -56,16 +56,14 @@ vi.mock("@multica/core/workspace/queries", () => ({
 }));
 
 const push = vi.fn();
-const back = vi.fn();
-const nav = { canGoBack: false, pathname: "/work/issues", search: "" };
+const nav = { pathname: "/work/issues", search: "" };
 
 function renderButton(config: unknown) {
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(config), { status: 200 })));
   const adapter: NavigationAdapter = {
     push,
     replace: vi.fn(),
-    back,
-    canGoBack: () => nav.canGoBack,
+    back: vi.fn(),
     pathname: nav.pathname,
     searchParams: new URLSearchParams(nav.search),
     hash: "",
@@ -84,7 +82,6 @@ function renderButton(config: unknown) {
 beforeEach(() => {
   h.snap = { status: "off", error: null, heard: "", said: "" };
   h.handler = null;
-  nav.canGoBack = false;
   nav.pathname = "/work/issues";
   nav.search = "";
   vi.clearAllMocks();
@@ -128,13 +125,6 @@ describe("VoiceAgentButton", () => {
     expect(await h.handler!("navigate", { place: "nowhere" }, () => true)).toEqual({ error: "unknown place nowhere" });
   });
 
-  it("goes back only to an earlier Multica page", async () => {
-    renderButton({ enabled: true, socket: "/voice/agent/ws" });
-    await screen.findByRole("button", { name: "Talk to Multica" });
-    expect(await h.handler!("go_back", {}, () => true)).toEqual({ error: "there is no earlier Multica page to go back to" });
-    expect(back).not.toHaveBeenCalled();
-  });
-
   it("does not move the window for a conversation that has ended", async () => {
     renderButton({ enabled: true, socket: "/voice/agent/ws" });
     await screen.findByRole("button", { name: "Talk to Multica" });
@@ -150,6 +140,16 @@ describe("VoiceAgentButton", () => {
     await screen.findByRole("button", { name: "Talk to Multica" });
     const out = await h.handler!("read_screen", {}, () => true);
     expect(out.inbox_item).toEqual({ title: "Quick create failed", kind: "quick_create_failed", detail: "timeout", at: "2026-11-17T10:00:00Z" });
+    expect(out.issue).toBeUndefined();
+  });
+
+  it("still answers when the selection is an archived notification, not an issue", async () => {
+    nav.pathname = "/work/inbox";
+    nav.search = "view=archived&issue=gone";
+    renderButton({ enabled: true, socket: "/voice/agent/ws" });
+    await screen.findByRole("button", { name: "Talk to Multica" });
+    const out = await h.handler!("read_screen", {}, () => true);
+    expect(out).toMatchObject({ page: "/work/inbox", workspace: "Work" });
     expect(out.issue).toBeUndefined();
   });
 });

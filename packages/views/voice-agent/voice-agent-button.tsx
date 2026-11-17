@@ -105,25 +105,25 @@ function useVoiceAgentActions(current: Workspace | null) {
             if (row) {
               screen.inbox_item = { title: row.title, kind: row.type, detail: clip(row.body, 300), at: row.created_at };
             }
+            // Not in the active list (an archived row): the key is an issue id or a notification id.
             issueRef = row ? row.issue_id : onScreen.ref;
           }
           if (issueRef) {
-            const issue = await qc.fetchQuery(issueDetailOptions(current.id, issueRef));
-            screen.issue = {
-              id: issue.identifier,
-              title: issue.title,
-              status: issue.status,
-              priority: issue.priority,
-              description: clip(issue.description, 800),
-            };
+            try {
+              const issue = await qc.fetchQuery(issueDetailOptions(current.id, issueRef));
+              screen.issue = {
+                id: issue.identifier,
+                title: issue.title,
+                status: issue.status,
+                priority: issue.priority,
+                description: clip(issue.description, 800),
+              };
+            } catch {
+              // The selection is not an issue (an archived notification); the page and title still answer.
+            }
           }
           return screen;
         }
-        case "go_back":
-          // Only within Multica: history behind the first page may be another site.
-          if (!nav.canGoBack?.()) return { error: "there is no earlier Multica page to go back to" };
-          nav.back();
-          return { ok: true };
         default:
           return { error: `unknown action ${name}` };
       }

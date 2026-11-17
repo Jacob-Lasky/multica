@@ -10,7 +10,9 @@
 import { paths, type WorkspacePaths } from "@multica/core/paths";
 import type { InboxItem, Workspace } from "@multica/core/types";
 
-export const VOICE_AGENT_ACTIONS = ["navigate", "open_unread_inbox_item", "read_screen", "go_back"] as const;
+// No "go back": browser history can hold pages outside the app (another site, the standalone voice page), and
+// nothing here can see where the previous entry is. The agent navigates to a named place instead.
+export const VOICE_AGENT_ACTIONS = ["navigate", "open_unread_inbox_item", "read_screen"] as const;
 export type VoiceAgentActionName = (typeof VOICE_AGENT_ACTIONS)[number];
 
 const PLACES: Record<string, (p: WorkspacePaths) => string> = {
