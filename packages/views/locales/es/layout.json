@@ -279,5 +279,22 @@
     "copy_table": "Copiar tabla",
     "copied": "Copiado",
     "copy_failed": "No se pudo copiar"
+  },
+  "voice_agent": {
+    "start": "Hablar con Multica",
+    "stop": "Dejar de hablar con Multica",
+    "dismiss": "Cerrar",
+    "status": {
+      "connecting": "Conectando…",
+      "listening": "Escuchando",
+      "working": "Trabajando…",
+      "speaking": "Hablando"
+    },
+    "errors": {
+      "busy": "El agente de voz está ocupado. Inténtalo de nuevo en un momento.",
+      "signed-out": "Vuelve a iniciar sesión para usar la voz.",
+      "microphone": "Permite el acceso al micrófono para usar la voz.",
+      "failed": "La voz se desconectó."
+    }
   }
 }

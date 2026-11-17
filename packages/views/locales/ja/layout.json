@@ -269,5 +269,22 @@
     "copy_table": "表をコピー",
     "copied": "コピーしました",
     "copy_failed": "コピーできませんでした"
+  },
+  "voice_agent": {
+    "start": "Multica と話す",
+    "stop": "Multica との会話を終了",
+    "dismiss": "閉じる",
+    "status": {
+      "connecting": "接続中…",
+      "listening": "聞き取り中",
+      "working": "処理中…",
+      "speaking": "応答中"
+    },
+    "errors": {
+      "busy": "音声エージェントは使用中です。しばらくしてから再試行してください。",
+      "signed-out": "音声を使うには再度サインインしてください。",
+      "microphone": "音声を使うにはマイクへのアクセスを許可してください。",
+      "failed": "音声が切断されました。"
+    }
   }
 }

@@ -70,7 +70,7 @@ class PcmDownsampler extends AudioWorkletProcessor {
 registerProcessor("pcm-downsampler", PcmDownsampler);
 `;
 
-async function loadWorklet(audio: AudioContext) {
+export async function loadPcmWorklet(audio: AudioContext) {
   const url = URL.createObjectURL(new Blob([PCM_WORKLET], { type: "text/javascript" }));
   try {
     await audio.audioWorklet.addModule(url);
@@ -115,7 +115,7 @@ export class DeepgramStream implements VoiceStream {
     if (audio.state === "suspended") void audio.resume().catch(() => {});
     // Loaded while the permission prompt is up, so capture can start the
     // moment the microphone opens.
-    const worklet = loadWorklet(audio);
+    const worklet = loadPcmWorklet(audio);
     worklet.catch(() => {});
     try {
       this.media = await openMicrophone(deviceId);

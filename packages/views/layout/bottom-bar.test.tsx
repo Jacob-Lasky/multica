@@ -31,6 +31,9 @@ vi.mock("@multica/ui/hooks/use-mobile", () => ({ useIsMobile: () => h.isMobile }
 vi.mock("./panels/team-status", () => ({ useTeamAgentStatus: () => h.team }));
 vi.mock("./app-shell-context", () => ({ useAppShell: () => null }));
 vi.mock("../chat/components/chat-bar", () => ({ ChatBar: () => <div data-testid="chat-bar" /> }));
+vi.mock("../voice-agent/voice-agent-button", () => ({
+  VoiceAgentButton: ({ variant }: { variant: string }) => <div data-testid={`voice-agent-${variant}`} />,
+}));
 
 function renderBar(pathname = "/acme/issues") {
   const adapter: NavigationAdapter = {
@@ -100,12 +103,19 @@ describe("AppBottomBar", () => {
     expect(screen.queryByTestId("chat-bar")).not.toBeInTheDocument();
   });
 
-  it("renders nothing on a narrow window or without a workspace", () => {
-    h.isMobile = true;
-    expect(renderBar().container).toBeEmptyDOMElement();
-
-    h.isMobile = false;
+  it("renders nothing without a workspace", () => {
     h.workspace = null;
     expect(renderBar().container).toBeEmptyDOMElement();
+  });
+
+  it("puts the voice agent in the bar, and floating below md where there is no bar", () => {
+    const { unmount } = renderBar();
+    expect(screen.getByTestId("voice-agent-bar")).toBeInTheDocument();
+    unmount();
+
+    h.isMobile = true;
+    renderBar();
+    expect(screen.getByTestId("voice-agent-floating")).toBeInTheDocument();
+    expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
   });
 });

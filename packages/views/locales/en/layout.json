@@ -279,5 +279,22 @@
     "copy_table": "Copy table",
     "copied": "Copied",
     "copy_failed": "Couldn't copy"
+  },
+  "voice_agent": {
+    "start": "Talk to Multica",
+    "stop": "Stop talking to Multica",
+    "dismiss": "Dismiss",
+    "status": {
+      "connecting": "Connecting…",
+      "listening": "Listening",
+      "working": "Working…",
+      "speaking": "Speaking"
+    },
+    "errors": {
+      "busy": "The voice agent is busy. Try again in a moment.",
+      "signed-out": "Sign in again to use voice.",
+      "microphone": "Allow microphone access to use voice.",
+      "failed": "Voice disconnected."
+    }
   }
 }

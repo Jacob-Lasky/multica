@@ -269,5 +269,22 @@
     "copy_table": "표 복사",
     "copied": "복사했습니다",
     "copy_failed": "복사하지 못했습니다"
+  },
+  "voice_agent": {
+    "start": "Multica와 대화",
+    "stop": "Multica와 대화 종료",
+    "dismiss": "닫기",
+    "status": {
+      "connecting": "연결 중…",
+      "listening": "듣는 중",
+      "working": "작업 중…",
+      "speaking": "말하는 중"
+    },
+    "errors": {
+      "busy": "음성 에이전트가 사용 중입니다. 잠시 후 다시 시도하세요.",
+      "signed-out": "음성을 사용하려면 다시 로그인하세요.",
+      "microphone": "음성을 사용하려면 마이크 접근을 허용하세요.",
+      "failed": "음성 연결이 끊겼습니다."
+    }
   }
 }

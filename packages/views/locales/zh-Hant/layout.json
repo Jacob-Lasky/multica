@@ -269,5 +269,22 @@
     "copy_table": "複製表格",
     "copied": "已複製",
     "copy_failed": "複製失敗"
+  },
+  "voice_agent": {
+    "start": "與 Multica 對話",
+    "stop": "結束與 Multica 的對話",
+    "dismiss": "關閉",
+    "status": {
+      "connecting": "連線中…",
+      "listening": "正在聆聽",
+      "working": "處理中…",
+      "speaking": "正在說話"
+    },
+    "errors": {
+      "busy": "語音智能體正忙，請稍後再試。",
+      "signed-out": "請重新登入後使用語音。",
+      "microphone": "請允許存取麥克風以使用語音。",
+      "failed": "語音已中斷。"
+    }
   }
 }

@@ -279,5 +279,22 @@
     "copy_table": "Copier le tableau",
     "copied": "Copié",
     "copy_failed": "Impossible de copier"
+  },
+  "voice_agent": {
+    "start": "Parler à Multica",
+    "stop": "Arrêter de parler à Multica",
+    "dismiss": "Fermer",
+    "status": {
+      "connecting": "Connexion…",
+      "listening": "À l'écoute",
+      "working": "En cours…",
+      "speaking": "Parle"
+    },
+    "errors": {
+      "busy": "L'agent vocal est occupé. Réessayez dans un instant.",
+      "signed-out": "Reconnectez-vous pour utiliser la voix.",
+      "microphone": "Autorisez l'accès au micro pour utiliser la voix.",
+      "failed": "La voix s'est déconnectée."
+    }
   }
 }
