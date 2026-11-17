@@ -7,9 +7,10 @@ import { cn } from "@multica/ui/lib/utils";
 import { TooltipHint } from "@multica/ui/components/common/tooltip-hint";
 import { useCurrentWorkspace } from "@multica/core/paths";
 import { workspaceListOptions } from "@multica/core/workspace/queries";
-import { inboxListOptions } from "@multica/core/inbox/queries";
+import { archivedInboxLookupOptions, inboxListOptions } from "@multica/core/inbox/queries";
+import { ApiError } from "@multica/core/api";
 import { issueDetailOptions } from "@multica/core/issues/queries";
-import type { Workspace } from "@multica/core/types";
+import type { InboxItem, Workspace } from "@multica/core/types";
 import { useT } from "../i18n";
 import { BOTTOM_BAR_ICON_ITEM_CLASS } from "../layout/bottom-bar-styles";
 import { useNavigation } from "../navigation";
@@ -39,6 +40,14 @@ function useVoiceAgentConfig(): VoiceAgentConfig | null {
     retry: false,
   });
   return data ?? null;
+}
+
+function isNotFound(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 404;
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : "failed";
 }
 
 function useVoiceAgentSnapshot(): VoiceAgentSnapshot {
@@ -98,15 +107,28 @@ function useVoiceAgentActions(current: Workspace | null) {
           };
           const onScreen = issueOnScreen(pathname, searchParams);
           let issueRef = onScreen && !onScreen.byId ? onScreen.ref : null;
+          // A raw inbox key (no row found in either list) may be a notification id, not an issue:
+          // only then is a 404 from the issue lookup expected.
+          let rawInboxKey = false;
           if (onScreen?.byId) {
             // The inbox selects by issue id, or by the notification's own id when it has no issue.
-            const items = await qc.fetchQuery(inboxListOptions(current.id));
-            const row = items.find((i) => (i.issue_id ?? i.id) === onScreen.ref);
+            const sameKey = (i: InboxItem) => (i.issue_id ?? i.id) === onScreen.ref;
+            let row = (await qc.fetchQuery(inboxListOptions(current.id))).find(sameKey);
+            if (!row && searchParams.get("view") === "archived") {
+              try {
+                const page = await qc.fetchQuery(archivedInboxLookupOptions(current.id, onScreen.ref));
+                row = page.items.find(sameKey);
+              } catch (err) {
+                if (!isNotFound(err)) screen.inbox_error = errorMessage(err);
+              }
+            }
             if (row) {
               screen.inbox_item = { title: row.title, kind: row.type, detail: clip(row.body, 300), at: row.created_at };
+              issueRef = row.issue_id;
+            } else {
+              issueRef = onScreen.ref;
+              rawInboxKey = true;
             }
-            // Not in the active list (an archived row): the key is an issue id or a notification id.
-            issueRef = row ? row.issue_id : onScreen.ref;
           }
           if (issueRef) {
             try {
@@ -118,8 +140,9 @@ function useVoiceAgentActions(current: Workspace | null) {
                 priority: issue.priority,
                 description: clip(issue.description, 800),
               };
-            } catch {
-              // The selection is not an issue (an archived notification); the page and title still answer.
+            } catch (err) {
+              // Expected only for a raw inbox key that names a notification; anything else the agent should say.
+              if (!(rawInboxKey && isNotFound(err))) screen.issue_error = errorMessage(err);
             }
           }
           return screen;
