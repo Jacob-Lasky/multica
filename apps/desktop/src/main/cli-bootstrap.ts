@@ -2,10 +2,9 @@ import { app } from "electron";
 import { execFile } from "child_process";
 import { createHash } from "crypto";
 import { createReadStream, createWriteStream, existsSync } from "fs";
-import { chmod, mkdir, rename, rm } from "fs/promises";
+import { chmod, mkdir, mkdtemp, rename, rm } from "fs/promises";
 import { join, dirname } from "path";
 import { pipeline } from "stream/promises";
-import { tmpdir } from "os";
 import { Readable } from "stream";
 
 import { selectPlatformReleaseAssetName } from "./cli-release-asset";
@@ -102,8 +101,13 @@ async function installFresh(): Promise<string> {
   }
   const url = `${GITHUB_LATEST_BASE}/${assetName}`;
 
-  const workDir = join(tmpdir(), `multica-cli-${Date.now()}`);
-  await mkdir(workDir, { recursive: true });
+  // DO NOT stage under os.tmpdir(): the final rename() cannot cross
+  // filesystems, and on many Linux installs /tmp is a tmpfs while userData
+  // lives on the home filesystem, so rename() fails with EXDEV and the
+  // install falls back to whatever `multica` is on PATH. Staging beside the
+  // target keeps the rename on one filesystem, so the swap stays atomic.
+  await mkdir(dirname(target), { recursive: true });
+  const workDir = await mkdtemp(join(dirname(target), ".cli-install-"));
 
   try {
     const archivePath = join(workDir, assetName);
@@ -123,10 +127,12 @@ async function installFresh(): Promise<string> {
       );
     }
 
-    await mkdir(dirname(target), { recursive: true });
-    await rm(target, { force: true }).catch(() => {});
+    // Set the mode before the swap so the target is never present without it.
+    // rename() replaces an existing target in one step (POSIX rename, and
+    // MoveFileEx with MOVEFILE_REPLACE_EXISTING on Windows), so there is no
+    // window where the managed CLI is missing.
+    await chmod(extractedBin, 0o755);
     await rename(extractedBin, target);
-    await chmod(target, 0o755);
 
     // macOS: ad-hoc sign so spawning the child never hits a gatekeeper quirk.
     // Non-fatal: unsigned binaries still execute when the parent app is trusted.
