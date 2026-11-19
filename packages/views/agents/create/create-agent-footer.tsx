@@ -8,9 +8,9 @@ import { AGENT_CREATE_STEP_COUNT, type AgentCreateStep } from "./create-shell";
 
 /**
  * The bar pinned under every creation step: where the reader is on the left,
- * the way out and the one way forward on the right. Below `md` its end
- * padding keeps the forward button clear of the chat launcher, which owns
- * that corner there.
+ * the way out and the one way forward on the right. Below `md` its inline
+ * padding keeps both ends clear of the launchers that own the bottom corners
+ * there (voice agent on the left, quick chat on the right).
  */
 export function CreateFlowFooter({
   stepIndex,
@@ -25,7 +25,7 @@ export function CreateFlowFooter({
 }) {
   const { t } = useT("agents");
   return (
-    <footer className="flex min-h-14 shrink-0 items-center gap-3 border-t bg-background py-3 pl-4 max-md:pe-chat-launcher md:pr-4">
+    <footer className="flex min-h-14 shrink-0 items-center gap-3 border-t bg-background py-3 max-md:ps-chat-launcher max-md:pe-chat-launcher md:pr-4 md:pl-4">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {stepIndex ? (
           <p className="shrink-0 text-caption text-muted-foreground">

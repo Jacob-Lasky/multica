@@ -32,7 +32,9 @@ vi.mock("./panels/team-status", () => ({ useTeamAgentStatus: () => h.team }));
 vi.mock("./app-shell-context", () => ({ useAppShell: () => null }));
 vi.mock("../chat/components/chat-bar", () => ({ ChatBar: () => <div data-testid="chat-bar" /> }));
 vi.mock("../voice-agent/voice-agent-button", () => ({
-  VoiceAgentButton: ({ variant }: { variant: string }) => <div data-testid={`voice-agent-${variant}`} />,
+  VoiceAgentButton: ({ variant, hidden }: { variant: string; hidden?: boolean }) => (
+    <div data-testid={`voice-agent-${variant}`} data-hidden={hidden ? "true" : "false"} />
+  ),
 }));
 
 function renderBar(pathname = "/acme/issues") {
@@ -135,18 +137,19 @@ describe("AppBottomBar", () => {
     h.isMobile = true;
     h.chat.isOpen = true;
     const { unmount } = renderBar();
-    expect(screen.queryByTestId("voice-agent-floating")).not.toBeInTheDocument();
+    // Hidden but mounted: unmounting would hang up a conversation in progress.
+    expect(screen.getByTestId("voice-agent-floating")).toHaveAttribute("data-hidden", "true");
     unmount();
 
     // An open flag with the floating window turned off shows no window.
     h.chat.floatingChatEnabled = false;
     renderBar();
-    expect(screen.getByTestId("voice-agent-floating")).toBeInTheDocument();
+    expect(screen.getByTestId("voice-agent-floating")).toHaveAttribute("data-hidden", "false");
   });
 
   it("hides the floating voice agent on the Chat tab, whose composer spans the phone", () => {
     h.isMobile = true;
     renderBar("/acme/chat");
-    expect(screen.queryByTestId("voice-agent-floating")).not.toBeInTheDocument();
+    expect(screen.getByTestId("voice-agent-floating")).toHaveAttribute("data-hidden", "true");
   });
 });

@@ -166,7 +166,9 @@ export function InstructionsTab({
           </div>
         )}
 
-        <div className="sticky bottom-0 flex min-h-12 items-center gap-2 rounded-b-xl border-t bg-card py-2 pr-2 pl-4">
+        {/* Below `md` this bar pins to the bottom edge, where the voice agent and
+            chat launchers own the corners: its inline padding clears both. */}
+        <div className="sticky bottom-0 flex min-h-12 items-center gap-2 rounded-b-xl border-t bg-card py-2 max-md:ps-chat-launcher max-md:pe-chat-launcher md:pr-2 md:pl-4">
           {isDirty ? (
             <span className="flex min-w-0 items-center gap-2 text-caption text-muted-foreground">
               <span

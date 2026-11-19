@@ -166,22 +166,44 @@ function useVoiceAgentActions(current: Workspace | null) {
  * while the user moves around the app, until pressed again. It renders at the
  * left end of the bottom bar from `md` up, and below `md` as a floating button
  * in the bottom-left corner, the mirror image of the quick chat launcher.
+ *
+ * `hidden` removes the button and its caption but keeps this component
+ * mounted: it owns the session's action handler, and unmounting it hangs up a
+ * conversation in progress (`voiceAgent.setActionHandler`).
  */
-export function VoiceAgentButton({ variant }: { variant: "bar" | "floating" }) {
+export function VoiceAgentButton({
+  variant,
+  hidden = false,
+}: {
+  variant: "bar" | "floating";
+  hidden?: boolean;
+}) {
   const { t } = useT("layout");
   const config = useVoiceAgentConfig();
   const current = useCurrentWorkspace();
   const snap = useVoiceAgentSnapshot();
   useVoiceAgentActions(current);
 
-  if (!config?.enabled || !config.socket) return null;
+  if (hidden || !config?.enabled || !config.socket) return null;
   const socket = config.socket;
   const on = snap.status !== "off";
   const label = on ? t(($) => $.voice_agent.stop) : t(($) => $.voice_agent.start);
   const toggle = () => (on ? voiceAgent.stop() : void voiceAgent.start(socket));
 
   return (
-    <>
+    // The caption opens above the button, anchored to it, so it never runs
+    // over the app rail on desktop or off the left edge on a phone.
+    <div
+      data-slot="voice-agent"
+      className={
+        variant === "bar"
+          ? // -ml-2: the bar's first item, its icon on the bar's left gutter.
+            "relative -ml-2 flex shrink-0"
+          : // The chat launcher's corner geometry, mirrored. Fixed, so the
+            // shell's safe-area padding does not apply: add the insets here.
+            "fixed bottom-[calc(var(--chat-launcher-inset)+env(safe-area-inset-bottom))] left-[calc(var(--chat-launcher-inset)+env(safe-area-inset-left))] z-50 flex"
+      }
+    >
       <TooltipHint label={label}>
         <button
           type="button"
@@ -191,10 +213,9 @@ export function VoiceAgentButton({ variant }: { variant: "bar" | "floating" }) {
           data-voice-agent={snap.status}
           className={cn(
             variant === "bar"
-              ? // -ml-2: the first item of the bar, its icon on the bar's left gutter.
-                cn(BOTTOM_BAR_ICON_ITEM_CLASS, "-ml-2")
-              : // eslint-disable-next-line no-restricted-syntax -- a launcher: the same round button as the chat launcher, on its row in the opposite corner
-                "fixed left-[var(--chat-launcher-inset)] bottom-[var(--chat-launcher-inset)] z-50 flex size-[var(--chat-launcher-size)] items-center justify-center rounded-full bg-surface-raised text-muted-foreground shadow-[var(--floating-shadow)] ring-1 ring-surface-border",
+              ? BOTTOM_BAR_ICON_ITEM_CLASS
+              : // eslint-disable-next-line no-restricted-syntax -- a launcher: the same round button as the chat launcher, in the opposite corner
+                "flex size-[var(--chat-launcher-size)] items-center justify-center rounded-full bg-surface-raised text-muted-foreground shadow-[var(--floating-shadow)] ring-1 ring-surface-border",
             on && "text-brand",
             on && snap.status !== "listening" && "animate-chat-impulse",
           )}
@@ -203,7 +224,7 @@ export function VoiceAgentButton({ variant }: { variant: "bar" | "floating" }) {
         </button>
       </TooltipHint>
       <VoiceAgentCaption snap={snap} variant={variant} />
-    </>
+    </div>
   );
 }
 
@@ -221,8 +242,8 @@ function VoiceAgentCaption({ snap, variant }: { snap: VoiceAgentSnapshot; varian
       aria-live="polite"
       data-slot="voice-agent-caption"
       className={cn(
-        "fixed left-4 z-50 w-[min(22rem,calc(100vw-2rem))] rounded-lg bg-surface-raised p-3 text-caption shadow-[var(--floating-shadow)] ring-1 ring-surface-border",
-        variant === "bar" ? "bottom-10" : "bottom-[calc(var(--chat-launcher-inset)+var(--chat-launcher-size)+0.75rem)]",
+        "absolute bottom-full left-0 z-50 w-[min(22rem,calc(100vw-2rem))] rounded-lg bg-surface-raised p-3 text-caption shadow-[var(--floating-shadow)] ring-1 ring-surface-border",
+        variant === "bar" ? "mb-2" : "mb-3",
       )}
     >
       <div className="flex items-center justify-between gap-2 text-muted-foreground">

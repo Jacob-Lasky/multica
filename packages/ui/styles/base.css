@@ -9,14 +9,16 @@
 @custom-variant cjk (&:is(:lang(zh), :lang(ja), :lang(ko)));
 
 /* Below `md` the chat launcher overlays the dashboard's bottom-right corner on
- * every workspace page, so anything that runs to that corner has to stop short
- * of it. From `md` up quick chat is in the bottom bar and the clearance is
+ * every workspace page, and the voice agent's launcher (same size) the
+ * bottom-left one, so anything that runs to those corners has to stop short
+ * of them. From `md` up quick chat is in the bottom bar and the clearance is
  * zero. Named rather than spelled out at each site: the intent is legible, every
  * site that yields to the launcher is findable by these classes, and the
  * distance stays derived from the launcher's own geometry.
  *
  * Which one to reach for depends on how the site approaches the corner:
  *  - a full-width bar arrives from the left     -> pe-chat-launcher
+ *  - and starts in the bottom-left corner       -> ps-chat-launcher too
  *  - scrollable content ends there              -> pb-chat-launcher
  *  - a centred overlay grows into it            -> above-chat-launcher
  *
@@ -27,6 +29,10 @@
  * usually applied under a `max-md:` variant. */
 @utility pe-chat-launcher {
   padding-inline-end: var(--chat-launcher-clearance);
+}
+
+@utility ps-chat-launcher {
+  padding-inline-start: var(--chat-launcher-clearance);
 }
 
 @utility pb-chat-launcher {

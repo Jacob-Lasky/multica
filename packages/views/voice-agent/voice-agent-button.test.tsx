@@ -65,7 +65,7 @@ vi.mock("@multica/core/workspace/queries", () => ({
 const push = vi.fn();
 const nav = { pathname: "/work/issues", search: "" };
 
-function renderButton(config: unknown) {
+function renderButton(config: unknown, hidden = false) {
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(config), { status: 200 })));
   const adapter: NavigationAdapter = {
     push,
@@ -80,7 +80,7 @@ function renderButton(config: unknown) {
   return renderWithI18n(
     <QueryClientProvider client={qc}>
       <NavigationProvider value={adapter}>
-        <VoiceAgentButton variant="bar" />
+        <VoiceAgentButton variant="bar" hidden={hidden} />
       </NavigationProvider>
     </QueryClientProvider>,
   );
@@ -123,6 +123,15 @@ describe("VoiceAgentButton", () => {
     expect(screen.getByText("Opened your inbox.")).toBeInTheDocument();
     fireEvent.click(button);
     expect(h.stop).toHaveBeenCalled();
+  });
+
+  it("hidden, it shows nothing but keeps running the conversation's actions", async () => {
+    h.snap = { status: "listening", error: null, heard: "", said: "" };
+    const { container } = renderButton({ enabled: true, socket: "/voice/agent/ws" }, true);
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    expect(container).toBeEmptyDOMElement();
+    expect(h.handler).not.toBeNull();
+    expect(await h.handler!("navigate", { place: "inbox" }, () => true)).toMatchObject({ ok: true });
   });
 
   it("runs the agent's navigate action through the app's navigation", async () => {

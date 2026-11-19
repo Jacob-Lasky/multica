@@ -65,10 +65,11 @@ export function AppBottomBar() {
     // Below `md` there is no bar; the voice agent floats in the bottom-left
     // corner. The open chat window and the Chat tab both span the phone's
     // width with their composer along the bottom edge, so the button (and its
-    // caption) would cover the composer's left end: hide it there. Hiding does
-    // not stop a conversation; the button is back when chat closes.
+    // caption) would cover the composer's left end: hide it there. Hidden, not
+    // unmounted, so a conversation in progress carries on; the button is back
+    // when chat closes.
     const chatCoversCorner = onChatTab || (floatingChatEnabled && chatOpen);
-    return chatCoversCorner ? null : <VoiceAgentButton variant="floating" />;
+    return <VoiceAgentButton variant="floating" hidden={chatCoversCorner} />;
   }
   // Same gates as the floating window: the Settings preference, and the Chat
   // tab, which already shows the conversation full-page.
