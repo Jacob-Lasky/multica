@@ -2124,6 +2124,9 @@ func runIssueStatus(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("update status: %w", err)
 	}
 
+	if savedStatus := strVal(result, "status"); savedStatus != "" {
+		status = savedStatus
+	}
 	if duplicateOf != "" {
 		original, err := recordedDuplicateOf(result, duplicateOf)
 		if err != nil {

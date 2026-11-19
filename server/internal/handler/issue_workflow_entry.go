@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/issuestatus"
@@ -44,49 +45,62 @@ type workflowHandoff struct {
 // enterOnMove makes a project move enter the step the issue lands on.
 // run is the calling agent's run on this issue (nil for members): it may only
 // move the issue from the step it works on. It returns the handoff that write
-// triggers, or nil.
-func (h *Handler) applyIssueWorkflow(ctx context.Context, prev db.Issue, params *db.UpdateIssueParams, statusExplicit, assigneeTouched, enterOnMove bool, run *db.AgentTaskQueue) (*workflowHandoff, error) {
+// triggers, or nil, and whether closing an alert suppresses run creation.
+func (h *Handler) applyIssueWorkflow(ctx context.Context, prev db.Issue, params *db.UpdateIssueParams, statusExplicit, assigneeTouched, enterOnMove bool, run *db.AgentTaskQueue) (*workflowHandoff, bool, error) {
 	def, project, err := issueworkflow.ForProject(ctx, h.Queries, prev.WorkspaceID, params.ProjectID)
 	if err != nil {
-		return nil, err
-	}
-	// Keeping the current status is never a rejected write, even when the
-	// workflow no longer lists it.
-	statusChanging := params.Status.Valid && params.Status.String != prev.Status
-	if def == nil {
-		if !statusChanging {
-			return nil, nil
-		}
-		outside, err := issueworkflow.OutsideProject(ctx, h.Queries, prev.WorkspaceID)
-		if err != nil {
-			return nil, err
-		}
-		return nil, issueworkflow.CheckStatusOutsideProject(outside, params.Status.String)
+		return nil, false, err
 	}
 	projectMoving := params.ProjectID != prev.ProjectID
-	if projectMoving && !statusExplicit && !def.IsDefault && !def.Has(prev.Status) {
+	if def != nil && projectMoving && !statusExplicit && !def.IsDefault && !def.Has(prev.Status) {
 		target := issueworkflow.MoveTarget(*def, prev.Status, func(key string) string {
 			return issuestatus.Category(ctx, h.Queries, prev.WorkspaceID, key)
 		})
 		params.Status = pgtype.Text{String: target, Valid: true}
 	}
-	// A move into a Default project keeps the issue's status, as it is never
-	// mapped; a named workflow must list the status the issue lands on.
-	if params.Status.Valid && (statusChanging || (projectMoving && !def.IsDefault)) {
-		if err := issueworkflow.CheckStatus(def, params.Status.String); err != nil {
-			return nil, err
+
+	// Close a Tower alert before resolving the Learn handler. Suppress both
+	// assignment-triggered runs and any position meant for the Learn column.
+	target := prev.Status
+	if params.Status.Valid {
+		target = params.Status.String
+	}
+	closeAlert := target == "learn" && (params.Status.Valid || (projectMoving && enterOnMove)) && isFleetAlert(prev.Metadata)
+	if closeAlert {
+		params.Status = pgtype.Text{String: "done", Valid: true}
+		params.Position = pgtype.Float8{}
+		// Clients ignore snapshots at the same revision. Confirm the persisted
+		// status even when an optimistic move started from Done.
+		params.ConfirmStatusRedirect = pgtype.Bool{Bool: true, Valid: true}
+	}
+
+	statusChanging := params.Status.Valid && params.Status.String != prev.Status
+	if def == nil && statusChanging {
+		outside, err := issueworkflow.OutsideProject(ctx, h.Queries, prev.WorkspaceID)
+		if err != nil {
+			return nil, false, err
+		}
+		if err := issueworkflow.CheckStatusOutsideProject(outside, params.Status.String); err != nil {
+			return nil, false, err
 		}
 	}
-	// Someone else moved the issue while the run worked: the run's decision was
-	// made for a step the issue has left, and applying it would undo that move.
-	// Default without handoffs keeps the pre-workflow behavior, so workspaces
-	// that never adopt workflows see no change.
-	if workflowStepMoved(def, prev.Status, run) &&
-		statusExplicit && params.Status.Valid && params.Status.String != prev.Status {
-		return nil, h.stepMovedError(ctx, prev, run.WorkflowStep.String)
+	if def != nil && params.Status.Valid && (statusChanging || (projectMoving && !def.IsDefault)) {
+		if err := issueworkflow.CheckStatus(def, params.Status.String); err != nil {
+			return nil, false, err
+		}
+	}
+
+	// Guard the final status so a run bound to a previous step cannot close
+	// an alert someone else moved, even if that move also removed its project.
+	if statusChanging && ((statusExplicit && workflowStepMoved(def, prev.Status, run)) ||
+		(closeAlert && boundWorkflowStepMoved(prev.Status, run))) {
+		return nil, false, h.stepMovedError(ctx, prev, run.WorkflowStep.String)
+	}
+	if closeAlert || def == nil {
+		return nil, closeAlert, nil
 	}
 	if assigneeTouched || prev.TriageState.Valid {
-		return nil, nil
+		return nil, false, nil
 	}
 	entering := ""
 	switch {
@@ -100,25 +114,35 @@ func (h *Handler) applyIssueWorkflow(ctx context.Context, prev db.Issue, params 
 	case !projectMoving && statusExplicit && params.Status.Valid && params.Status.String != prev.Status:
 		entering = params.Status.String
 	default:
-		return nil, nil
+		return nil, false, nil
 	}
 	step, ok := def.Step(entering)
 	if !ok || !step.HandsOff() {
-		return nil, nil
+		return nil, false, nil
 	}
 	assigneeType, assigneeID, ok := issueworkflow.ResolveHandler(step, project, prev.CreatorType, prev.CreatorID)
 	if !ok {
-		return nil, nil
+		return nil, false, nil
 	}
 	params.AssigneeType = pgtype.Text{String: assigneeType, Valid: true}
 	params.AssigneeID = assigneeID
-	return &workflowHandoff{def: *def, step: step, project: project}, nil
+	return &workflowHandoff{def: *def, step: step, project: project}, false, nil
+}
+
+func isFleetAlert(metadata []byte) bool {
+	fingerprint, _ := parseIssueMetadata(metadata)["alert_fp"].(string)
+	machine, reason, ok := strings.Cut(fingerprint, ":")
+	return ok && strings.TrimSpace(machine) != "" && strings.TrimSpace(reason) != ""
+}
+
+func boundWorkflowStepMoved(status string, run *db.AgentTaskQueue) bool {
+	return run != nil && run.WorkflowStep.Valid && run.WorkflowStep.String != status
 }
 
 // workflowStepMoved shares the step guard with the claim brief so a run is
 // never told to advance a step its status changes cannot act on.
 func workflowStepMoved(def *issueworkflow.Definition, status string, run *db.AgentTaskQueue) bool {
-	return def != nil && run != nil && run.WorkflowStep.Valid && run.WorkflowStep.String != status &&
+	return def != nil && boundWorkflowStepMoved(status, run) &&
 		(!def.IsDefault || def.HandsOffAnywhere())
 }
 

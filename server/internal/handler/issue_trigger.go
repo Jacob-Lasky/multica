@@ -241,6 +241,15 @@ func (h *Handler) PreviewIssueTrigger(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	status := ""
+	if req.Status != nil && *req.Status != "" {
+		var ok bool
+		status, ok = h.resolveIssueStatusKey(w, r, parseUUID(workspaceID), *req.Status)
+		if !ok {
+			return
+		}
+	}
+
 	for _, rawID := range req.IssueIDs {
 		issueUUID, err := util.ParseUUID(rawID)
 		if err != nil {
@@ -262,19 +271,23 @@ func (h *Handler) PreviewIssueTrigger(w http.ResponseWriter, r *http.Request) {
 			in.AssigneeChanged = loaded.AssigneeType.String != newAssigneeType.String ||
 				uuidToString(loaded.AssigneeID) != uuidToString(newAssigneeID)
 		}
-		if req.Status != nil && *req.Status != "" {
-			post.Status = *req.Status
-			in.StatusChanged = loaded.Status != *req.Status
-			// A status that enters a workflow handoff step reassigns the
-			// issue, exactly as UpdateIssue will. (MUL-7420)
-			if !hasNewAssignee {
-				params := db.UpdateIssueParams{
-					ProjectID:    loaded.ProjectID,
-					Status:       pgtype.Text{String: *req.Status, Valid: true},
-					AssigneeType: loaded.AssigneeType,
-					AssigneeID:   loaded.AssigneeID,
+		if status != "" {
+			post.Status = status
+			in.StatusChanged = loaded.Status != status
+			// Mirror both status remapping and handoff assignment on the write path.
+			params := db.UpdateIssueParams{
+				ProjectID:    loaded.ProjectID,
+				Status:       pgtype.Text{String: status, Valid: true},
+				AssigneeType: post.AssigneeType,
+				AssigneeID:   post.AssigneeID,
+			}
+			if hand, closeAlert, err := h.applyIssueWorkflow(r.Context(), loaded, &params, true, hasNewAssignee, false, nil); err == nil {
+				if closeAlert {
+					continue
 				}
-				if hand, err := h.applyIssueWorkflow(r.Context(), loaded, &params, true, false, false, nil); err == nil && hand != nil {
+				post.Status = params.Status.String
+				in.StatusChanged = loaded.Status != post.Status
+				if hand != nil {
 					post.AssigneeType = params.AssigneeType
 					post.AssigneeID = params.AssigneeID
 					in.AssigneeChanged = true

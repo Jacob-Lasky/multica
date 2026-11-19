@@ -4253,7 +4253,7 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 	// An agent's run may only move the issue from the step it works on.
 	callerType, _ := h.resolveActor(r, userID, workspaceID)
 	callerRun := h.agentRunOnIssue(r, callerType, prevIssue)
-	handoff, err := h.applyIssueWorkflow(r.Context(), prevIssue, &params, req.Status != nil, touchedType || touchedID, req.EnterWorkflowStep, callerRun)
+	handoff, closeAlert, err := h.applyIssueWorkflow(r.Context(), prevIssue, &params, req.Status != nil, touchedType || touchedID, req.EnterWorkflowStep, callerRun)
 	if err != nil {
 		if writeIssueWorkflowError(w, err) {
 			return
@@ -4369,7 +4369,7 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 		},
 		h.issueTriggerWriteProbe(r, actorType, actorID, issue),
 	)
-	willRun = willRun && !req.SuppressRun
+	willRun = willRun && !req.SuppressRun && !closeAlert
 
 	updatedPayload := map[string]any{
 		"issue":                resp,
@@ -5115,6 +5115,7 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 
 		var callerRun *db.AgentTaskQueue
 		var handoff *workflowHandoff
+		var closeAlert bool
 		issueStatusGuard := batchStatusKey
 		if hasFieldUpdate {
 			// Validate the resulting assignee pair when this batch update touches
@@ -5133,7 +5134,7 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 			// entering a handoff step reassigns this issue to the step's handler.
 			callerType, _ := h.resolveActor(r, userID, workspaceID)
 			callerRun = h.agentRunOnIssue(r, callerType, prevIssue)
-			handoff, err = h.applyIssueWorkflow(r.Context(), prevIssue, &params, req.Updates.Status != nil, batchTouchedType || batchTouchedID, false, callerRun)
+			handoff, closeAlert, err = h.applyIssueWorkflow(r.Context(), prevIssue, &params, req.Updates.Status != nil, batchTouchedType || batchTouchedID, false, callerRun)
 			if err != nil {
 				skip(issueID, identifier, "workflow_rejected", err.Error())
 				continue
@@ -5225,7 +5226,7 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 				},
 				h.issueTriggerWriteProbe(r, actorType, actorID, issue),
 			)
-			willRun = willRun && !req.Updates.SuppressRun
+			willRun = willRun && !req.Updates.SuppressRun && !closeAlert
 			batchPayload := map[string]any{
 				"issue":                      resp,
 				"assignee_changed":           assigneeChanged,

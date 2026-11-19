@@ -1411,6 +1411,10 @@ func (h *Handler) PreviewWorkflowHandoff(w http.ResponseWriter, r *http.Request)
 		AssigneeID:   issue.AssigneeID,
 	}
 	if status != "" {
+		status, ok = h.resolveIssueStatusKey(w, r, issue.WorkspaceID, status)
+		if !ok {
+			return
+		}
 		params.Status = pgtype.Text{String: status, Valid: true}
 	}
 	enterOnMove := false
@@ -1429,7 +1433,7 @@ func (h *Handler) PreviewWorkflowHandoff(w http.ResponseWriter, r *http.Request)
 		params.ProjectID = projectID
 		enterOnMove = true
 	}
-	hand, err := h.applyIssueWorkflow(r.Context(), issue, &params, status != "", false, enterOnMove, nil)
+	hand, _, err := h.applyIssueWorkflow(r.Context(), issue, &params, status != "", false, enterOnMove, nil)
 	if err != nil {
 		if writeIssueWorkflowError(w, err) {
 			return

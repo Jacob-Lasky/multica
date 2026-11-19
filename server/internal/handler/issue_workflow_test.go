@@ -544,6 +544,113 @@ func TestDefaultLimitsStatusesInAndOutsideProjects(t *testing.T) {
 	updateIssueForTest(t, onDefault, map[string]any{"status": settingsStatus.Key}).Want(http.StatusOK)
 }
 
+func TestAlertLearnTransitionClosesWithoutRun(t *testing.T) {
+	createTestCustomStatus(t, "learn", "started")
+	agentID := seededReadyAgentID(t)
+	projectID := createWorkflowTestProject(t, "Fleet alert routing")
+	setColumnHandoff(t, projectID, "learn", handToAgent(agentID, "Capture lessons.")).Want(http.StatusOK)
+
+	for _, tc := range []struct {
+		name     string
+		metadata string
+		status   string
+		tasks    int
+	}{
+		{"alert", `{"alert_fp":"tower:test"}`, "done", 0},
+		{"ordinary issue", `{}`, "learn", 1},
+		{"malformed fingerprint", `{"alert_fp":" : "}`, "learn", 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cols := testutil.Cols{"project_id": projectID, "status": "backlog"}
+			if tc.tasks == 0 {
+				cols["assignee_type"], cols["assignee_id"] = "agent", agentID
+			}
+			issueID := dbfx.Issue(t, tc.name, cols)
+			dbfx.Exec(t, `UPDATE issue SET metadata = $1::jsonb WHERE id = $2`, tc.metadata, issueID)
+			preview := previewIssueTrigger(t, map[string]any{"issue_ids": []string{issueID}, "status": " LEARN "})
+			if preview.TotalCount != tc.tasks {
+				t.Fatalf("preview tasks = %d, want %d", preview.TotalCount, tc.tasks)
+			}
+			updateIssueForTest(t, issueID, map[string]any{"status": " LEARN "}).Want(http.StatusOK)
+			if status, _, _ := issueStatusAndAssignee(t, issueID); status != tc.status {
+				t.Fatalf("status = %q, want %q", status, tc.status)
+			}
+			tasks, err := testHandler.Queries.ListTasksByIssue(context.Background(), util.MustParseUUID(issueID))
+			if err != nil || len(tasks) != tc.tasks {
+				t.Fatalf("tasks = %d (%v), want %d", len(tasks), err, tc.tasks)
+			}
+		})
+	}
+}
+
+func TestAlertLearnTransitionSkipsRunsOnOtherWritePaths(t *testing.T) {
+	createTestCustomStatus(t, "learn", "started")
+	agentID := seededReadyAgentID(t)
+	projectID := createWorkflowTestProject(t, "Fleet alert routing")
+	setColumnHandoff(t, projectID, "learn", handToAgent(agentID, "Capture lessons.")).Want(http.StatusOK)
+
+	for _, name := range []string{"explicit assignment", "batch assignment", "project entry", "projectless", "stale run", "stale projectless run", "repeat from done"} {
+		t.Run(name, func(t *testing.T) {
+			cols := testutil.Cols{"project_id": projectID, "status": "in_progress"}
+			switch name {
+			case "project entry":
+				delete(cols, "project_id")
+				cols["status"] = "learn"
+			case "projectless":
+				delete(cols, "project_id")
+			case "repeat from done":
+				cols["status"] = "done"
+			case "stale projectless run":
+				delete(cols, "project_id")
+				fallthrough
+			case "stale run":
+				cols["status"] = "learn"
+				cols["assignee_type"], cols["assignee_id"] = "agent", agentID
+			}
+			issueID := dbfx.Issue(t, name, cols)
+			dbfx.Exec(t, `UPDATE issue SET metadata = '{"alert_fp":"tower:test"}' WHERE id = $1`, issueID)
+			status, taskCount := "done", 0
+			assign := map[string]any{"status": "learn", "assignee_type": "agent", "assignee_id": agentID}
+			switch name {
+			case "explicit assignment":
+				updateIssueForTest(t, issueID, assign).Want(http.StatusOK)
+			case "batch assignment":
+				testutil.Call(t, testHandler.BatchUpdateIssues, workflowRequest(http.MethodPost, "/api/issues/batch", map[string]any{
+					"issue_ids": []string{issueID}, "updates": assign,
+				})).Want(http.StatusOK)
+			case "project entry":
+				updateIssueForTest(t, issueID, map[string]any{"project_id": projectID, "enter_workflow_step": true}).Want(http.StatusOK)
+			case "projectless":
+				updateIssueForTest(t, issueID, map[string]any{"status": "learn"}).Want(http.StatusOK)
+			case "repeat from done":
+				var revision int64
+				var position float64
+				dbfx.QueryRow(t, `SELECT revision, position FROM issue WHERE id = $1`, issueID).Scan(&revision, &position)
+				var updated IssueResponse
+				updateIssueForTest(t, issueID, map[string]any{"status": "learn", "position": position + 42}).Want(http.StatusOK).JSON(&updated)
+				if updated.Revision != revision+1 || updated.Position != position {
+					t.Fatalf("redirected revision and position = %d, %v, want %d, %v", updated.Revision, updated.Position, revision+1, position)
+				}
+			case "stale run", "stale projectless run":
+				var runtimeID string
+				dbfx.QueryRow(t, `SELECT runtime_id::text FROM agent WHERE id = $1`, agentID).Scan(&runtimeID)
+				taskID := dbfx.Task(t, agentID, testutil.Cols{
+					"issue_id": issueID, "runtime_id": runtimeID, "status": "running", "started_at": time.Now(), "workflow_step": "in_progress",
+				})
+				agentUpdateIssue(t, issueID, agentID, taskID, map[string]any{"status": "learn"}).Want(http.StatusConflict)
+				status, taskCount = "learn", 1
+			}
+			if got, _, _ := issueStatusAndAssignee(t, issueID); got != status {
+				t.Fatalf("status = %q, want %q", got, status)
+			}
+			tasks, err := testHandler.Queries.ListTasksByIssue(context.Background(), util.MustParseUUID(issueID))
+			if err != nil || len(tasks) != taskCount {
+				t.Fatalf("tasks = %d (%v), want %d", len(tasks), err, taskCount)
+			}
+		})
+	}
+}
+
 func TestStatusChangeHandsOffOnDefaultProject(t *testing.T) {
 	seedTestCatalog(t)
 	agentID := seededReadyAgentID(t)

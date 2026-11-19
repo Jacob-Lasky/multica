@@ -4100,7 +4100,7 @@ func TestRunIssueStatusNoStartSendsSuppressRun(t *testing.T) {
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				t.Errorf("decode body: %v", err)
 			}
-			json.NewEncoder(w).Encode(map[string]any{"id": "issue-1", "identifier": "MUL-1", "status": "in_progress"})
+			json.NewEncoder(w).Encode(map[string]any{"id": "issue-1", "identifier": "MUL-1", "status": "done"})
 		default:
 			http.NotFound(w, r)
 		}
@@ -4112,11 +4112,16 @@ func TestRunIssueStatusNoStartSendsSuppressRun(t *testing.T) {
 
 	cmd := newIssueStatusTestCmd()
 	_ = cmd.Flags().Set("no-start", "true")
-	if err := runIssueStatus(cmd, []string{"MUL-1", "in_progress"}); err != nil {
+	stderr := captureStderr(t)
+	defer stderr.restore()
+	if err := runIssueStatus(cmd, []string{"MUL-1", "learn"}); err != nil {
 		t.Fatalf("runIssueStatus: %v", err)
 	}
-	if got := body["status"]; got != "in_progress" {
-		t.Fatalf("status = %#v, want in_progress", got)
+	if got := stderr.read(); !strings.Contains(got, "status changed to done") {
+		t.Fatalf("status report = %q, want the saved status", got)
+	}
+	if got := body["status"]; got != "learn" {
+		t.Fatalf("status = %#v, want learn", got)
 	}
 	if got := body["suppress_run"]; got != true {
 		t.Fatalf("suppress_run = %#v, want true", got)

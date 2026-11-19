@@ -300,7 +300,7 @@ UPDATE issue AS i SET
     project_id = changed.next_project_id,
     stage = changed.next_stage,
     duplicate_of_issue_id = changed.next_duplicate_of_issue_id,
-    revision = i.revision + changed.did_change::integer,
+    revision = i.revision + (changed.did_change OR COALESCE(sqlc.narg('confirm_status_redirect')::boolean, false))::integer,
     last_activity_at = CASE WHEN changed.did_activity
         THEN GREATEST(COALESCE(i.last_activity_at, i.updated_at), now())
         ELSE i.last_activity_at
