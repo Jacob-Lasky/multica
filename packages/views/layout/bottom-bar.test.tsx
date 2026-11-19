@@ -11,7 +11,7 @@ interface TeamStatus {
 }
 
 const h = vi.hoisted(() => ({
-  chat: { floatingChatEnabled: true },
+  chat: { floatingChatEnabled: true, isOpen: false },
   isMobile: false,
   workspace: { id: "ws-test" } as { id: string } | null,
   team: { working: [], stuck: [], byAgent: new Map() } as TeamStatus,
@@ -54,6 +54,7 @@ function renderBar(pathname = "/acme/issues") {
 
 beforeEach(() => {
   h.chat.floatingChatEnabled = true;
+  h.chat.isOpen = false;
   h.isMobile = false;
   h.workspace = { id: "ws-test" };
   h.team = { working: [], stuck: [], byAgent: new Map() };
@@ -117,5 +118,35 @@ describe("AppBottomBar", () => {
     renderBar();
     expect(screen.getByTestId("voice-agent-floating")).toBeInTheDocument();
     expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+  });
+
+  it("puts the voice agent at the left end of the bar, before team status and quick chat", () => {
+    h.team.stuck = [{ id: "a1" }];
+    h.team.byAgent = new Map([["a1", { queuedCount: 1 }]]);
+    renderBar();
+    const voice = screen.getByTestId("voice-agent-bar");
+    const status = screen.getByRole("link");
+    const chat = screen.getByTestId("chat-bar");
+    expect(voice.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(status.compareDocumentPosition(chat) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("hides the floating voice agent below md while quick chat is open, so it never covers the composer", () => {
+    h.isMobile = true;
+    h.chat.isOpen = true;
+    const { unmount } = renderBar();
+    expect(screen.queryByTestId("voice-agent-floating")).not.toBeInTheDocument();
+    unmount();
+
+    // An open flag with the floating window turned off shows no window.
+    h.chat.floatingChatEnabled = false;
+    renderBar();
+    expect(screen.getByTestId("voice-agent-floating")).toBeInTheDocument();
+  });
+
+  it("hides the floating voice agent on the Chat tab, whose composer spans the phone", () => {
+    h.isMobile = true;
+    renderBar("/acme/chat");
+    expect(screen.queryByTestId("voice-agent-floating")).not.toBeInTheDocument();
   });
 });

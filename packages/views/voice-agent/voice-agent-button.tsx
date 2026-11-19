@@ -163,8 +163,9 @@ function useVoiceAgentActions(current: Workspace | null) {
 
 /**
  * The voice agent's switch: one press turns it on, and it stays on, listening,
- * while the user moves around the app, until pressed again. It renders in the
- * bottom bar from `md` up and as a floating button above quick chat below.
+ * while the user moves around the app, until pressed again. It renders at the
+ * left end of the bottom bar from `md` up, and below `md` as a floating button
+ * in the bottom-left corner, the mirror image of the quick chat launcher.
  */
 export function VoiceAgentButton({ variant }: { variant: "bar" | "floating" }) {
   const { t } = useT("layout");
@@ -190,10 +191,10 @@ export function VoiceAgentButton({ variant }: { variant: "bar" | "floating" }) {
           data-voice-agent={snap.status}
           className={cn(
             variant === "bar"
-              ? // ml-auto: sits beside quick chat on the right of the bar.
-                cn(BOTTOM_BAR_ICON_ITEM_CLASS, "-mr-2 ml-auto")
-              : // eslint-disable-next-line no-restricted-syntax -- a launcher: the same round button as the chat launcher it sits above
-                "fixed right-[var(--chat-launcher-inset)] bottom-[calc(var(--chat-launcher-inset)+var(--chat-launcher-size)+0.75rem)] z-50 flex size-[var(--chat-launcher-size)] items-center justify-center rounded-full bg-surface-raised text-muted-foreground shadow-[var(--floating-shadow)] ring-1 ring-surface-border",
+              ? // -ml-2: the first item of the bar, its icon on the bar's left gutter.
+                cn(BOTTOM_BAR_ICON_ITEM_CLASS, "-ml-2")
+              : // eslint-disable-next-line no-restricted-syntax -- a launcher: the same round button as the chat launcher, on its row in the opposite corner
+                "fixed left-[var(--chat-launcher-inset)] bottom-[var(--chat-launcher-inset)] z-50 flex size-[var(--chat-launcher-size)] items-center justify-center rounded-full bg-surface-raised text-muted-foreground shadow-[var(--floating-shadow)] ring-1 ring-surface-border",
             on && "text-brand",
             on && snap.status !== "listening" && "animate-chat-impulse",
           )}
@@ -220,8 +221,8 @@ function VoiceAgentCaption({ snap, variant }: { snap: VoiceAgentSnapshot; varian
       aria-live="polite"
       data-slot="voice-agent-caption"
       className={cn(
-        "fixed right-4 z-50 w-[min(22rem,calc(100vw-2rem))] rounded-lg bg-surface-raised p-3 text-caption shadow-[var(--floating-shadow)] ring-1 ring-surface-border",
-        variant === "bar" ? "bottom-10" : "bottom-[calc(var(--chat-launcher-inset)+2*var(--chat-launcher-size)+1.5rem)]",
+        "fixed left-4 z-50 w-[min(22rem,calc(100vw-2rem))] rounded-lg bg-surface-raised p-3 text-caption shadow-[var(--floating-shadow)] ring-1 ring-surface-border",
+        variant === "bar" ? "bottom-10" : "bottom-[calc(var(--chat-launcher-inset)+var(--chat-launcher-size)+0.75rem)]",
       )}
     >
       <div className="flex items-center justify-between gap-2 text-muted-foreground">
