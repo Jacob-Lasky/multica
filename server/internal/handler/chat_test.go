@@ -138,7 +138,7 @@ func TestSendChatMessage_DeferredPredecessorStaysHeadAcrossPromotion(t *testing.
 	predecessor := send("retrying prompt")
 	if _, err := testPool.Exec(ctx, `
 		UPDATE agent_task_queue
-		SET status = 'deferred', priority = 3, fire_at = now() + interval '5 seconds'
+		SET status = 'deferred', priority = 11, fire_at = now() + interval '5 seconds'
 		WHERE id = $1
 	`, predecessor.TaskID); err != nil {
 		t.Fatalf("defer predecessor: %v", err)
