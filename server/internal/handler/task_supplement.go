@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/multica-ai/multica/server/internal/logger"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
@@ -486,7 +487,7 @@ func (h *Handler) ClaimTaskSupplement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to claim additional message")
+		writeTaskSupplementError(w, r, err, "failed to claim additional message")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -527,11 +528,27 @@ func (h *Handler) AckTaskSupplement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to acknowledge additional message")
+		writeTaskSupplementError(w, r, err, "failed to acknowledge additional message")
 		return
 	}
 	h.publishTaskSupplementUpdate(r, row)
 	writeJSON(w, http.StatusOK, supplementReceipt(row))
+}
+
+// writeTaskSupplementError answers a failed daemon claim or acknowledgement.
+// The daemon polls claims every five seconds with a three-second deadline per
+// run, so a request it abandons (its run ended, its deadline hit) makes pgx
+// return context.Canceled: answer 499, which the request logger records at
+// Info. DO NOT go back to a bare 500 here: the request logger records every
+// 500 as an error with no cause, which pages Tower's sentinel on an alert
+// nobody can diagnose (JAKE-1155). Any other failure is logged with its cause
+// and still answers 500, so the daemon retries on its next poll.
+func writeTaskSupplementError(w http.ResponseWriter, r *http.Request, err error, msg string) {
+	if writeQueryCancellation(w, r, err) {
+		return
+	}
+	slog.Warn(msg, append(logger.RequestAttrs(r), "task_id", chi.URLParam(r, "taskId"), "error", err)...)
+	writeError(w, http.StatusInternalServerError, msg)
 }
 
 func stableTaskSupplementFailureReason(reason string) string {
